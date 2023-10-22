@@ -1,2 +1,2 @@
 # geo_programing
-zioko-delinngu
+ジオコーディングしたい

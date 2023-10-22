@@ -1,0 +1,51 @@
+[tool.poetry]
+name = "geo_programing"
+version = "0.1.0"
+description = ""
+authors = []
+
+readme = "README.md"
+packages = []
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.11"
+fire = "^0.5.0"
+google-api-python-client = "^2.70.0"
+google-auth-httplib2 = "^0.1.0"
+google-auth-oauthlib = "^0.8.0"
+numpy = "^1.24.2"
+open3d = "0.16"
+scikit-learn = "^1.2.2"
+pyyaml = "^6.0"
+addict = "^2.4.0"
+pillow = "^9.5.0"
+pandas = "^2.0.0"
+tqdm = "^4.65.0"
+matplotlib = "^3.7.1"
+graphene-pydantic = "^0.4.0"
+pyransac3d = "^0.6.0"
+trimesh = "^3.21.7"
+openai = "^0.27.8"
+geopandas = "^0.14.0"
+shapely = "^2.0.2"
+fiona = "^1.9.5"
+six = "^1.16.0"
+pyproj = "^3.6.1"
+descartes = "^1.1.0"
+geopy = "^2.4.0"
+
+
+[tool.poetry.group.dev.dependencies]
+black = "^22.12.0"
+isort = "^5.11.2"
+mypy = "^0.991"
+pytest = "^7.2.0"
+google-auth-stubs = "^0.2.0"
+google-api-python-client-stubs = "^1.13.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+profile = "black"

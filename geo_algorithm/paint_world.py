@@ -17,17 +17,17 @@ continent_color_dict = {
 
 world = gpd.datasets.get_path("naturalearth_lowres")  # 世界地図
 df_world = gpd.read_file(world)
-print(df_world.columns)
 
 #大陸ごとに色分け表示
 ax_continent = df_world.plot()
-for i in range(len(df_world)):
-    A_Area = df_world[i: i+1]
-    continent = A_Area["continent"].values[0]
-    if continent in continent_color_dict:
-        A_Area.plot(ax=ax_continent, color=continent_color_dict[continent])
+continents = df_world.dissolve(by="continent")  # 大陸ごとにまとめる
+for i in range(len(continents)):
+    continent = continents[i: i+1]
+    continent_name = continent.index.values[0]
+    if continent_name in continent_color_dict:
+        continent.plot(ax=ax_continent, color=continent_color_dict[continent_name], edgecolor="black")
     else:
-        A_Area.plot(ax=ax_continent, color=continent_color_dict["Others"])
+        continent.plot(ax=ax_continent, color=continent_color_dict["Others"], edgecolor="black")
 plt.show()
 
 # 国ごとに色分け表示

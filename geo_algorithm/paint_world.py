@@ -19,21 +19,25 @@ world = gpd.datasets.get_path("naturalearth_lowres")  # 世界地図
 df_world = gpd.read_file(world)
 print(df_world.columns)
 
-#大陸ごとに色分け表示
+# 大陸ごとに色分け表示
 ax_continent = df_world.plot()
 for i in range(len(df_world)):
-    A_Area = df_world[i: i+1]
+    A_Area = df_world[i : i + 1]
     continent = A_Area["continent"].values[0]
     if continent in continent_color_dict:
         A_Area.plot(ax=ax_continent, color=continent_color_dict[continent])
     else:
-        A_Area.plot(ax=ax_continent, color=continent_color_dict["Others"])
+        A_Area.plot(
+            ax=ax_continent,
+            color=continent_color_dict["Others"],
+            edgecolor=continent_color_dict["Others"],
+        )
 plt.show()
 
 # 国ごとに色分け表示
 ax_country = df_world.plot()
 for i in range(len(df_world)):
-    A_Country = df_world[i: i+1]
+    A_Country = df_world[i : i + 1]
     RGB = (random.uniform(0.3, 1), random.uniform(0.3, 1), random.uniform(0.3, 1))
     A_Country.plot(ax=ax_country, color=RGB, edgecolor="black")
 plt.show()

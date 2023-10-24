@@ -18,8 +18,25 @@ tokyoken_list = [data_tokyo, data_saitama, data_chiba, data_kanagawa]
 merged_tokyoken = gpd.GeoDataFrame(pd.concat(tokyoken_list, ignore_index=True))
 
 ax_tokyoken = merged_tokyoken.plot()
-for i in range(len(merged_tokyoken)):
+"""for i in range(len(merged_tokyoken)):
     data_sanken_new = merged_tokyoken[i : i + 1]
     color_RGB = (random.uniform(0.5, 1), random.uniform(0.5, 1), random.uniform(0.5, 1))
     data_sanken_new.plot(ax=ax_tokyoken, color=color_RGB, edgecolor="black")
+plt.show()"""
+
+# 東京都のみを表示
+merged_tokyoken[merged_tokyoken["N03_001"] == "東京都"].plot(color="white", edgecolor="black")
+plt.show()
+
+ax_tokyo = data_tokyo.plot(color="white")
+railways = r"shp_files/鉄道/N02-22_RailroadSection.shp"
+df_railways = gpd.read_file(railways, encoding="shift-jis")
+
+data_tokyo = data_tokyo.reset_index(drop=True)
+df_railways = df_railways.reset_index(drop=True)
+for i in range(len(df_railways)):
+    data_railways_new = df_railways[i : i + 1]
+    if data_tokyo.contains(data_railways_new).any():
+        print("True")
+        data_railways_new.plot(ax=ax_tokyo, color="red", edgecolor="black")
 plt.show()

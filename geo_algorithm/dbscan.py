@@ -10,6 +10,7 @@ db = DBSCAN(eps=0.3, min_samples=5)
 
 # フィットと予測
 y_db = db.fit_predict(X)
+print(X[y_db == 0])
 
 # クラスタをプロット
 plt.scatter(X[y_db == 0, 0], X[y_db == 0, 1],

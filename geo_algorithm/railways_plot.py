@@ -25,7 +25,9 @@ ax_tokyoken = merged_tokyoken.plot()
 plt.show()"""
 
 # 東京都のみを表示
-merged_tokyoken[merged_tokyoken["N03_001"] == "東京都"].plot(color="white", edgecolor="black")
+merged_tokyoken[merged_tokyoken["N03_001"] == "東京都"].plot(
+    color="white", edgecolor="black"
+)
 plt.show()
 
 ax_tokyo = data_tokyo.plot(color="white")

@@ -16,14 +16,15 @@ color_dict = {
 
 
 def gen_cmap_name(cols):
-    nmax = float(len(cols)-1)
+    nmax = float(len(cols) - 1)
     color_list = []
     for n, c in enumerate(cols):
-        color_list.append((n/nmax, c))
+        color_list.append((n / nmax, c))
 
-    return mpl.colors.LinearSegmentedColormap.from_list('cmap', color_list)
+    return mpl.colors.LinearSegmentedColormap.from_list("cmap", color_list)
 
-cmap = gen_cmap_name(['r','yellow','g','b','magenta'])
+
+cmap = gen_cmap_name(["r", "yellow", "g", "b", "magenta"])
 
 
 # 洪水浸水想定区域のshapefileを読み込む

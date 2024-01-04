@@ -1,1 +1,7 @@
 shp_files/
+data/
+result/
+*.png
+*.shp
+*.pcd
+*.ply

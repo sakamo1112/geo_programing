@@ -5,22 +5,44 @@ import cv2
 import numpy as np
 
 
-def create_test_data(floor_num: int, prob: List[float]) -> Tuple[int, int]:
+def create_test_data(floor_num: int, prob: List[float]) -> Tuple[int, int, str]:
+    """
+    This function creates test data for the elevator optimization algorithm.
+
+    Parameters:
+    floor_num (int): The number of floors in the building.
+    prob (List[float]): A list of probabilities for each floor.
+
+    Returns:
+    Tuple[int, int, str]: A tuple that represents the start and end floors for the elevator trip and the type of the user.
+    """
     random_num = np.random.rand()  # 0~1の乱数を生成
     if random_num < prob[0]:
-        trans: Tuple[int, int] = (np.random.randint(2, floor_num + 1), 1, "user")
+        trans = (np.random.randint(2, floor_num + 1), 1, "user")
     elif random_num < prob[0] + prob[1]:
-        trans: Tuple[int, int] = (1, np.random.randint(2, floor_num + 1), "user")
+        trans = (1, np.random.randint(2, floor_num + 1), "user")
     else:
         trans_0 = np.random.randint(2, floor_num + 1)
         trans_1 = np.random.randint(2, floor_num + 1)
         while trans_0 == trans_1:
             trans_1 = np.random.randint(2, floor_num + 1)
-        trans: Tuple[int, int] = (trans_0, trans_1, "user")
+        trans = (trans_0, trans_1, "user")
     return trans
 
 
-def create_wait_data(trans_data, trans_img):
+def create_wait_data(
+    trans_data: List[Tuple[int, int, str]], trans_img: np.ndarray
+) -> Tuple[List[Tuple[int, int, str]], np.ndarray]:
+    """
+    This function creates waiting data for the elevator optimization algorithm.
+
+    Parameters:
+    trans_data (List[Tuple[int, int, str]]): A list of tuples representing the start and end floors for the elevator trip and the type of the user.
+    trans_img (np.ndarray): An array representing the transition image.
+
+    Returns:
+    Tuple[List[Tuple[int, int, str]], np.ndarray]: A tuple containing the updated list of tuples representing the start and end floors for the elevator trip and the type of the user, and the updated transition image.
+    """
     elv_move_img = np.copy(trans_img)
     elv_move_data = copy.copy(trans_data)
     pls_count2 = 0
@@ -56,7 +78,22 @@ def create_wait_data(trans_data, trans_img):
     return elv_move_data, elv_move_img
 
 
-def create_mid_stop_data(trans_data, trans_img, stop_fl_list):
+def create_mid_stop_data(
+    trans_data: List[Tuple[int, int, str]],
+    trans_img: np.ndarray,
+    stop_fl_list: List[Tuple[int, int]],
+) -> Tuple[List[Tuple[int, int, str]], np.ndarray]:
+    """
+    This function creates mid-stop data for the elevator optimization algorithm.
+
+    Parameters:
+    trans_data (List[Tuple[int, int, str]]): A list of tuples representing the start and end floors for the elevator trip and the type of the user.
+    trans_img (np.ndarray): An array representing the transition image.
+    stop_fl_list (List[Tuple[int, int]]): A list of tuples representing the stop floors.
+
+    Returns:
+    Tuple[List[Tuple[int, int, str]], np.ndarray]: A tuple containing the updated list of tuples representing the start and end floors for the elevator trip and the type of the user, and the updated transition image.
+    """
     pls_count = 1  # idx=0を除いているので1から始める
     for i, stop in enumerate(stop_fl_list):
         if trans_data[i + pls_count - 1][1] == stop[1]:
@@ -80,7 +117,20 @@ def create_mid_stop_data(trans_data, trans_img, stop_fl_list):
     return trans_data, trans_img
 
 
-def seek_wait_minsum(trans_img, trans_data, test_num: int):
+def seek_wait_minsum(
+    trans_data: List[Tuple[int, int, str]], trans_img: np.ndarray, test_num: int
+) -> Tuple[List[Tuple[int, int, str]], List[Tuple[int, int, str]]]:
+    """
+    This function seeks the minimum sum of wait times for the elevator optimization algorithm.
+
+    Parameters:
+    trans_data (List[Tuple[int, int, str]]): A list of tuples representing the start and end floors for the elevator trip and the type of the user.
+    trans_img (np.ndarray): An array representing the transition image.
+    test_num (int): The number of tests to run.
+
+    Returns:
+    Tuple[List[Tuple[int, int, str]], List[Tuple[int, int, str]]]: A tuple containing the normal elevator data and the optimized elevator data.
+    """
     # Xはxiの中央値にすればいい
     stop_fl_list: List[Tuple[int, int]] = []
     for i in range(test_num):
@@ -106,7 +156,20 @@ def seek_wait_minsum(trans_img, trans_data, test_num: int):
     return elv_normal_data, elv_move_minsum_data
 
 
-def find_average_wait_time(elv_normal_data, elv_move_minsum_data):
+def find_average_wait_time(
+    elv_normal_data: List[Tuple[int, int, str]],
+    elv_move_minsum_data: List[Tuple[int, int, str]],
+) -> Tuple[List[float], List[int]]:
+    """
+    This function calculates the average wait time for the normal and optimized elevator data.
+
+    Parameters:
+    elv_normal_data (List[Tuple[int, int, str]]): A list of tuples representing the start and end floors for the normal elevator trip and the type of the user.
+    elv_move_minsum_data (List[Tuple[int, int, str]]): A list of tuples representing the start and end floors for the optimized elevator trip and the type of the user.
+
+    Returns:
+    Tuple[List[float], List[int]]: A tuple containing the average wait times for the normal and optimized elevator data, and the count of 'toride' for the normal and optimized elevator data.
+    """
     wait_time = 0
     wait_time_normal = 0
     toride_counter_normal = 0
@@ -132,16 +195,34 @@ def find_average_wait_time(elv_normal_data, elv_move_minsum_data):
     return wait_ave_time, toride_counter
 
 
-def find_wait_time_variance(elv_normal_data, elv_move_minsum_data, wait_ave_time, toride_counter):
-    var_wait_normal = 0
-    var_wait = 0
+def find_wait_time_variance(
+    elv_normal_data: List[Tuple[int, int, str]],
+    elv_move_minsum_data: List[Tuple[int, int, str]],
+    wait_ave_time: List[float],
+    toride_counter: List[int],
+) -> List[float]:
+    """
+    This function calculates the variance of the wait time for the normal and optimized elevator data.
+
+    Parameters:
+    elv_normal_data (List[Tuple[int, int, str]]): A list of tuples representing the start and end floors for the normal elevator trip and the type of the user.
+    elv_move_minsum_data (List[Tuple[int, int, str]]): A list of tuples representing the start and end floors for the optimized elevator trip and the type of the user.
+    wait_ave_time (List[float]): A list of average wait times for the normal and optimized elevator data.
+    toride_counter (List[int]): A list of counts of 'toride' for the normal and optimized elevator data.
+
+    Returns:
+    List[float]: A list of variances of the wait times for the normal and optimized elevator data.
+    """
+    var_wait_normal: float = 0
+    var_wait: float = 0
     for i in range(test_num):
         if i < 20:
             continue
         else:
             if elv_normal_data[i][2] == "toride":
                 var_wait_normal += (
-                    abs(elv_normal_data[i][0] - elv_normal_data[i][1]) - wait_ave_time[0]
+                    abs(elv_normal_data[i][0] - elv_normal_data[i][1])
+                    - wait_ave_time[0]
                 ) ** 2
             if elv_move_minsum_data[i][2] == "toride":
                 var_wait += (
@@ -162,7 +243,7 @@ def seek_0wait_maximize():
 if __name__ == "__main__":
     floor_num = 20
     test_num = 1000
-    trans_data: List[Tuple[int, int]] = []
+    trans_data = []
     trans_img = np.zeros((floor_num, test_num, 3))
     # prob[0]: 2~X階から1階に向かう人の割合, prob[1]: 1階から2~X階に向かう人の割合, prob[2]: 2~X階から2~X階に向かう人の割合
     prob = [0.7, 0.2, 0.1]
@@ -183,21 +264,26 @@ if __name__ == "__main__":
     cv2.imwrite("trans.png", trans_img)
 
     elv_normal_data, elv_move_minsum_data = seek_wait_minsum(
-        trans_img, trans_data, test_num
+        trans_data, trans_img, test_num
     )
     print(elv_normal_data[:4], "...", elv_normal_data[-1:])
     print(elv_move_minsum_data[:4], "...", elv_move_minsum_data[-1:])
 
-    # 待ち時間の平均を求める
-    wait_ave_time, toride_counter = find_average_wait_time(elv_normal_data, elv_move_minsum_data)
-
-    # 待ち時間の分散を求める
-    wait_time_var = find_wait_time_variance(elv_normal_data, elv_move_minsum_data, wait_ave_time, toride_counter)
-
+    # 待ち時間の平均・分散を求める
+    wait_ave_time, toride_counter = find_average_wait_time(
+        elv_normal_data, elv_move_minsum_data
+    )
+    wait_time_var = find_wait_time_variance(
+        elv_normal_data, elv_move_minsum_data, wait_ave_time, toride_counter
+    )
 
     print("-------------------------------------------------------------")
     print("     挙動     | 平均待ち時間 [階分] |          分散            ")
     print("-------------------------------------------------------------")
-    print("    通常      |    ", wait_ave_time[0], "           |        ", wait_time_var[0])
-    print(" MinSum挙動   |    ", wait_ave_time[1], "           |        ", wait_time_var[1])
+    print(
+        "    通常      |    ", wait_ave_time[0], "           |        ", wait_time_var[0]
+    )
+    print(
+        " MinSum挙動   |    ", wait_ave_time[1], "           |        ", wait_time_var[1]
+    )
     print("-------------------------------------------------------------")

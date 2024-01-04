@@ -1,6 +1,6 @@
 import random
 
-import geopandas as gpd
+import geopandas as gpd  # type: ignore
 import matplotlib.pyplot as plt
 
 """

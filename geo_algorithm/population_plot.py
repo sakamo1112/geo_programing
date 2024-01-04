@@ -1,12 +1,11 @@
 import argparse
 import re
 
-import japanize_matplotlib
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import mojimoji
 import numpy as np
-import pandas as pd
+import pandas as pd  # type: ignore
 
 area_list = [
     "全市",
@@ -81,7 +80,7 @@ def create_population_pyramid(
     plt.xticks(
         np.arange(-range, range + 1, range / 4),
         [
-            "{}".format(int(abs(x) / 1)) if x != 0 else 0
+            "{}".format(int(abs(x) / 1)) if x != 0 else "0"
             for x in np.arange(-range, range + 1, range / 4)
         ],
     )

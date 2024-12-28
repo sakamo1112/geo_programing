@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import rasterio
-from calc_terrain import calc_slope
+from calc_terrain_status import calc_slope
 from matplotlib.lines import Line2D
 from rasterio.mask import mask
 from shapely.geometry import box
@@ -828,15 +828,16 @@ def visualize_slope_shc_relationship(
     plt.legend(by_label.values(), by_label.keys(), loc="lower left")
 
     hazure_suffix = "_hazure" if hazure else ""
+    steep_suffix = "_os" if only_steep_area else ""
     if mode == "red":
         plt.savefig(
-            f"result/slope_shc_scatter_kyogikai{hazure_suffix}.png",
+            f"result/slope_shc_scatter_kyogikai{hazure_suffix}{steep_suffix}.png",
             dpi=300,
             bbox_inches="tight",
         )
     elif mode == "orange":
         plt.savefig(
-            f"result/slope_shc_scatter_top_steep{hazure_suffix}.png",
+            f"result/slope_shc_scatter_top_steep{hazure_suffix}{steep_suffix}.png",
             dpi=300,
             bbox_inches="tight",
         )
@@ -908,8 +909,9 @@ def visualize_slope_shc_relationship_with_top_cities(
     plt.legend(by_label.values(), by_label.keys(), loc="lower left")
 
     hazure_suffix = "_hazure" if hazure else ""
+    steep_suffix = "_os" if only_steep_area else ""
     plt.savefig(
-        f"result/slope_shc_scatter_top_steep_with_top_cities{hazure_suffix}.png",
+        f"result/slope_shc_scatter_top_steep_with_top_cities{hazure_suffix}{steep_suffix}.png",
         dpi=300,
         bbox_inches="tight",
     )

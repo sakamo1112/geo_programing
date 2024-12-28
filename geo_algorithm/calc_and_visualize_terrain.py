@@ -199,40 +199,45 @@ if __name__ == "__main__":
         pref_code = row["都道府県名"].split("_")[0]  # "(都道府県コード)_都道府県名" から都道府県コードを抽出
         pref_code_dict[pref_name] = pref_code
 
-    """# 283都市の標高・傾斜度・SHCを計算し、エクセルデータを作成
-    df_stats = calc_terrain_of_283cities(pref_code_dict)
-    df_stats.to_excel(RESULT_XLSX, index=False)"""
+    if_calc_terrain = False
+    if_visualize_terrain = True
 
-    # 作成したエクセルデータを読み込み
-    df_stats = pd.read_excel(RESULT_XLSX, dtype={"都道府県コード": str})
-    top_steep_cities = df_stats.sort_values(
-        "住居系用途地域に占める斜面市街地の割合", ascending=False
-    ).head(27)
-    top_steep_cities = list(top_steep_cities["市区町村名"])
+    if if_calc_terrain:
+        # 283都市の標高・傾斜度・SHCを計算し、エクセルデータを作成
+        df_stats = calc_terrain_of_283cities(pref_code_dict)
+        df_stats.to_excel(RESULT_XLSX, index=False)
 
-    hazure = False
-    only_steep_area = True
-    visualize_slope_area_ratio_histogram(df_stats)
-    visualize_top_cities_on_map(df_stats, hazure, if_kanto=True, thr_rank=27)
-    visualize_top_steep_cities_comparison(df_stats, top_steep_cities)
-    visualize_slope_shc_relationship(
-        df_stats,
-        kyogikai_cities,
-        top_steep_cities,
-        only_steep_area,
-        "red",
-        hazure,
-        thr_rank=27,
-    )
-    visualize_slope_shc_relationship(
-        df_stats,
-        kyogikai_cities,
-        top_steep_cities,
-        only_steep_area,
-        "orange",
-        hazure,
-        thr_rank=27,
-    )
-    visualize_slope_shc_relationship_with_top_cities(
-        df_stats, top_steep_cities, only_steep_area, hazure
-    )
+    if if_visualize_terrain:
+        # 作成したエクセルデータを読み込み
+        df_stats = pd.read_excel(RESULT_XLSX, dtype={"都道府県コード": str})
+        top_steep_cities = df_stats.sort_values(
+            "住居系用途地域に占める斜面市街地の割合", ascending=False
+        ).head(27)
+        top_steep_cities = list(top_steep_cities["市区町村名"])
+
+        hazure = False
+        only_steep_area = True
+        visualize_slope_area_ratio_histogram(df_stats)
+        visualize_top_cities_on_map(df_stats, hazure, if_kanto=True, thr_rank=27)
+        visualize_top_steep_cities_comparison(df_stats, top_steep_cities)
+        visualize_slope_shc_relationship(
+            df_stats,
+            kyogikai_cities,
+            top_steep_cities,
+            only_steep_area,
+            "red",
+            hazure,
+            thr_rank=27,
+        )
+        visualize_slope_shc_relationship(
+            df_stats,
+            kyogikai_cities,
+            top_steep_cities,
+            only_steep_area,
+            "orange",
+            hazure,
+            thr_rank=27,
+        )
+        visualize_slope_shc_relationship_with_top_cities(
+            df_stats, top_steep_cities, only_steep_area, hazure
+        )

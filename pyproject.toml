@@ -37,6 +37,13 @@ mojimoji = "^0.0.12"
 pyxlsx = "^1.1.3"
 japanize-matplotlib = "^1.1.3"
 opencv-python = "^4.9.0.80"
+folium = "^0.17.0"
+seaborn = "^0.13.2"
+swifter = "^1.4.0"
+contextily = "^1.6.2"
+matplotlib-scalebar = "^0.8.1"
+rasterio = "^1.4.3"
+gdal = "3.9.0"
 
 
 [tool.poetry.group.dev.dependencies]

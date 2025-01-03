@@ -916,3 +916,76 @@ def visualize_slope_shc_relationship_with_top_cities(
         bbox_inches="tight",
     )
     plt.close()
+
+def visualize_slope_shc_relationship_with_top_cities1(
+    df_stats, top_steep_cities, only_steep_area, hazure
+):
+    # figureとaxesを作成
+    fig, ax = plt.subplots(figsize=(12, 8))  # figureサイズを少し大きくして余白を確保
+
+    if only_steep_area:
+        df_stats = df_stats[df_stats["住居系用途地域に占める斜面市街地の割合"] >= 5]
+        makura = "斜面市街地の"
+    else:
+        makura = ""
+
+    if hazure:
+        hazure = "(外れ値除去後)"
+    else:
+        hazure = ""
+
+    # カラーマップの設定
+    cmap = plt.cm.YlOrRd
+    norm = plt.Normalize(
+        vmin=df_stats["住居系用途地域に占める斜面市街地の割合"].min(),
+        vmax=df_stats["住居系用途地域に占める斜面市街地の割合"].max()
+    )
+
+    # 主要な斜面都市をプロット
+    for i, row in df_stats.iterrows():
+        city = row["市区町村名"]
+        x, y = (
+            row[f"{makura}SHC{hazure}_平均値"],
+            row[f"{makura}傾斜度{hazure}_中央値"],
+        )
+        
+        if city in top_steep_cities:
+            slope_ratio = row["住居系用途地域に占める斜面市街地の割合"]
+            size = 30 + slope_ratio * 5
+            color = cmap(norm(slope_ratio))
+            
+            ax.scatter(x, y, color=color, marker="o", s=size, zorder=10)
+            ax.annotate(
+                f"{city}\n({slope_ratio:.1f}%)",
+                (x, y),
+                xytext=(5, 5),
+                textcoords="offset points",
+                fontweight="bold",
+                zorder=10,
+                fontsize=10,
+            )
+
+    ax.set_xlabel(f"起伏の大きさ(SHC{hazure}の平均値)")
+    ax.set_ylabel(f"急峻さ(傾斜度{hazure}の中央値) [度]")
+    if only_steep_area:
+        ax.set_title(f"主要な斜面都市の斜面市街地における傾斜度とSHCの関係")
+    else:
+        ax.set_title(f"主要な斜面都市における傾斜度とSHCの関係")
+    ax.grid(True, alpha=0.3)
+
+    # カラーバーを追加
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    plt.colorbar(sm, ax=ax, label="住居系用途地域に占める斜面市街地の割合 (%)")
+
+    # レイアウトを自動調整
+    plt.tight_layout()
+
+    hazure_suffix = "_hazure" if hazure else ""
+    steep_suffix = "_os" if only_steep_area else ""
+    plt.savefig(
+        f"result/slope_shc_scatter_top_steep_with_top_cities{hazure_suffix}{steep_suffix}.png",
+        dpi=300,
+        bbox_inches="tight",
+    )
+    plt.close()

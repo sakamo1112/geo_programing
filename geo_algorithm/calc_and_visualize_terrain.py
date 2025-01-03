@@ -16,6 +16,7 @@ from create_terrain_graph import (
     visualize_slope_area_ratio_histogram,
     visualize_slope_shc_relationship,
     visualize_slope_shc_relationship_with_top_cities,
+    visualize_slope_shc_relationship_with_top_cities1,
     visualize_top_cities_on_map,
     visualize_top_steep_cities_comparison,
 )
@@ -216,9 +217,9 @@ if __name__ == "__main__":
         top_steep_cities = list(top_steep_cities["市区町村名"])
 
         hazure = False
-        only_steep_area = False
+        only_steep_area = True
         visualize_slope_area_ratio_histogram(df_stats)
-        #visualize_top_cities_on_map(df_stats, hazure, if_kanto=True, thr_rank=27)
+        visualize_top_cities_on_map(df_stats, hazure, if_kanto=True, thr_rank=27)
         visualize_top_steep_cities_comparison(df_stats, top_steep_cities)
         visualize_slope_shc_relationship(
             df_stats,
@@ -238,6 +239,6 @@ if __name__ == "__main__":
             hazure,
             thr_rank=27,
         )
-        visualize_slope_shc_relationship_with_top_cities(
+        visualize_slope_shc_relationship_with_top_cities1(
             df_stats, top_steep_cities, only_steep_area, hazure
         )

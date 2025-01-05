@@ -14,6 +14,7 @@ from rasterio.mask import mask
 from shapely.geometry import box
 from create_terrain_graph import (
     visualize_slope_area_ratio_histogram,
+    visualize_slope_ratio_vs_median_slope,
     visualize_slope_shc_relationship,
     visualize_slope_shc_relationship_with_top_cities,
     visualize_slope_shc_relationship_with_top_cities1,
@@ -219,6 +220,7 @@ if __name__ == "__main__":
         hazure = False
         only_steep_area = True
         visualize_slope_area_ratio_histogram(df_stats)
+        visualize_slope_ratio_vs_median_slope(df_stats)
         visualize_top_cities_on_map(df_stats, hazure, if_kanto=True, thr_rank=27)
         visualize_top_steep_cities_comparison(df_stats, top_steep_cities)
         visualize_slope_shc_relationship(

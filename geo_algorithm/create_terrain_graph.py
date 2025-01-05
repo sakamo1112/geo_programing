@@ -57,7 +57,7 @@ def visualize_top_steep_cities_comparison(df_stats, top_steep_cities):
         top_steep_cities (list): 上位の斜面都市名のリスト
     """
     slope_data = {}
-    steep_ratio_15deg = {}
+    steep_ratio_10deg = {}
 
     # 各都市について傾斜度区分の計算を行う
     for city_name in top_steep_cities:
@@ -114,20 +114,21 @@ def visualize_top_steep_cities_comparison(df_stats, top_steep_cities):
                     hist / len(housing_area_slope[~np.isnan(housing_area_slope)]) * 100
                 )
                 slope_data[f"{city_name}"] = percentages
-                # 15度以上の割合を計算（15度以上の3区分の合計）
-                steep_ratio_15deg[city_name] = sum(percentages[3:])
+                # 10度以上の割合を計算（10度以上の3区分の合計）
+                steep_ratio_10deg[city_name] = sum(percentages[3:])
 
     # 2つのバージョンのグラフを作成
     for sort_by_steep in [False, True]:
         fig, ax = plt.subplots(figsize=(18, 8))
 
-        labels = ["0-5度", "5-10度", "10-15度", "15-20度", "20-25度", "25度以上"]
-        colors = ["#f0f9e8", "#bae4bc", "#7bccc4", "#43a2ca", "#0868ac", "red"]
+        # ラベルと色を逆順にする
+        labels = ["25度以上", "20-25度", "15-20度", "10-15度", "5-10度", "0-5度"]
+        colors = ["red", "#0868ac", "#43a2ca", "#7bccc4", "#bae4bc", "#f0f9e8"]
 
-        # 15度以上の割合で並べ替え（オプション）
+        # 10度以上の割合で並べ替え（オプション）
         if sort_by_steep:
             sorted_cities = dict(
-                sorted(steep_ratio_15deg.items(), key=lambda x: x[1], reverse=True)
+                sorted(steep_ratio_10deg.items(), key=lambda x: x[1], reverse=True)
             )
             sorted_slope_data = {k: slope_data[k] for k in sorted_cities.keys()}
         else:
@@ -138,7 +139,8 @@ def visualize_top_steep_cities_comparison(df_stats, top_steep_cities):
 
         # 積み上げ棒グラフの作成
         for i, (label, color) in enumerate(zip(labels, colors)):
-            values = [data[i] for data in sorted_slope_data.values()]
+            # インデックスを逆にしてデータを取得
+            values = [data[-(i+1)] for data in sorted_slope_data.values()]
             ax.bar(x, values, bottom=bottom, label=label, color=color)
 
             # パーセンテージの表示（5%以上の場合のみ）
@@ -150,18 +152,21 @@ def visualize_top_steep_cities_comparison(df_stats, top_steep_cities):
         # グラフの装飾
         ax.set_xticks(x)
         ax.set_xticklabels(sorted_slope_data.keys(), rotation=45, ha="right")
-        ax.set_ylabel("割合 (%)")
+        ax.set_ylabel("割合 [%]")
         title = "各都市の傾斜度区分割合の比較"
         if sort_by_steep:
-            title += "\n（15度以上の割合で降順に並べ替え）"
+            title += "\n（10度以上の割合で降順に並べ替え）"
         ax.set_title(title)
         ax.grid(True, axis="y", alpha=0.3)
-        ax.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
+        # ax.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
+    
+        handles, labels = ax.get_legend_handles_labels()
+        ax.legend(handles[::-1], labels[::-1], bbox_to_anchor=(1.05, 1), loc="upper left")
 
         plt.tight_layout()
         filename = "result/steep_ratio_comparison"
         if sort_by_steep:
-            filename += "_sorted_by_15deg"
+            filename += "_sorted_by_10deg"
         plt.savefig(f"{filename}.png", dpi=300, bbox_inches="tight")
         plt.close()
 
@@ -627,6 +632,60 @@ def visualize_slope_area_ratio_histogram(df_stats):
     plt.close()
 
 
+def visualize_slope_ratio_vs_median_slope(df_stats):
+    """
+    斜面市街地割合と傾斜度中央値の散布図を作成する関数
+
+    Args:
+        df_stats (pandas.DataFrame): 統計値をまとめたデータフレーム
+    """
+    plt.figure(figsize=(12, 8))
+    
+    # 散布図をプロット
+    plt.scatter(
+        df_stats["住居系用途地域に占める斜面市街地の割合"],
+        df_stats["傾斜度_中央値"],
+        color='#0b5394',
+        alpha=0.8,
+        s=30
+    )
+
+    # 相関係数を計算
+    correlation = df_stats["住居系用途地域に占める斜面市街地の割合"].corr(df_stats["傾斜度_中央値"])
+    
+    plt.xlabel("住居系用途地域に占める斜面市街地の割合 (%)")
+    plt.ylabel("傾斜度の中央値 (度)")
+    plt.title("斜面市街地割合と傾斜度中央値の関係")
+    plt.grid(True, alpha=0.3)
+    
+    # 相関係数をグラフ内に表示
+    plt.text(
+        0.05, 0.95,  # 左上に配置（相対座標）
+        f"相関係数: {correlation:.3f}",
+        transform=plt.gca().transAxes,
+        fontsize=12,
+        verticalalignment='top'
+    )
+    
+    # 回帰直線を追加
+    z = np.polyfit(
+        df_stats["住居系用途地域に占める斜面市街地の割合"],
+        df_stats["傾斜度_中央値"],
+        1
+    )
+    p = np.poly1d(z)
+    x_range = np.linspace(
+        df_stats["住居系用途地域に占める斜面市街地の割合"].min(),
+        df_stats["住居系用途地域に占める斜面市街地の割合"].max(),
+        100
+    )
+    plt.plot(x_range, p(x_range), "--", color="black", alpha=0.8)
+    
+    plt.tight_layout()
+    plt.savefig("result/slope_ratio_vs_median_slope.png", dpi=300, bbox_inches="tight")
+    plt.close()
+
+
 def visualize_slope_shc_relationship(
     df_stats,
     kyogikai_cities,
@@ -916,6 +975,7 @@ def visualize_slope_shc_relationship_with_top_cities(
         bbox_inches="tight",
     )
     plt.close()
+
 
 def visualize_slope_shc_relationship_with_top_cities1(
     df_stats, top_steep_cities, only_steep_area, hazure

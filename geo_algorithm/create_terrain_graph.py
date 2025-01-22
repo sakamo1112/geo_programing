@@ -115,11 +115,11 @@ def visualize_top_steep_cities_comparison(df_stats, top_steep_cities):
                 )
                 slope_data[f"{city_name}"] = percentages
                 # 10度以上の割合を計算（10度以上の3区分の合計）
-                steep_ratio_10deg[city_name] = sum(percentages[3:])
+                steep_ratio_10deg[city_name] = sum(percentages[2:])
 
     # 2つのバージョンのグラフを作成
     for sort_by_steep in [False, True]:
-        fig, ax = plt.subplots(figsize=(18, 8))
+        fig, ax = plt.subplots(figsize=(17, 8))
 
         # ラベルと色を逆順にする
         labels = ["25度以上", "20-25度", "15-20度", "10-15度", "5-10度", "0-5度"]
@@ -151,17 +151,33 @@ def visualize_top_steep_cities_comparison(df_stats, top_steep_cities):
 
         # グラフの装飾
         ax.set_xticks(x)
-        ax.set_xticklabels(sorted_slope_data.keys(), rotation=45, ha="right")
-        ax.set_ylabel("割合 [%]")
+        ax.set_xticklabels(
+            sorted_slope_data.keys(),
+            rotation=90,  # 90度回転して縦書きに
+            ha="center",  # 水平方向の位置を中央に
+            va="top",
+            fontsize=15,
+        )
+        ax.set_ylabel("割合 [%]", fontsize=15)  # y軸ラベルのフォントサイズを大きく
+        ax.tick_params(axis='y', labelsize=12)  # y軸の目盛りのフォントサイズを大きく
         title = "各都市の傾斜度区分割合の比較"
         if sort_by_steep:
             title += "\n（10度以上の割合で降順に並べ替え）"
         ax.set_title(title)
         ax.grid(True, axis="y", alpha=0.3)
-        # ax.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
-    
+        
+        # 凡例の設定を変更
         handles, labels = ax.get_legend_handles_labels()
-        ax.legend(handles[::-1], labels[::-1], bbox_to_anchor=(1.05, 1), loc="upper left")
+        ax.legend(
+            handles[::-1],
+            labels[::-1],
+            loc='upper center',
+            bbox_to_anchor=(0.5, -0.15),
+            ncol=6,
+            frameon=False,
+            fontsize=15,  # フォントサイズを大きく
+            markerscale=2  # 凡例のマーカー（色付きの四角）も大きく
+        )
 
         plt.tight_layout()
         filename = "result/steep_ratio_comparison"
@@ -454,8 +470,9 @@ def visualize_slope_shc_relationship_with_top_cities(
     plt.legend(by_label.values(), by_label.keys(), loc="lower left")
 
     hazure_suffix = "_hazure" if hazure else ""
+    steep_suffix = "_os" if only_steep_area else ""
     plt.savefig(
-        f"result/slope_shc_scatter_top_steep_with_top_cities{hazure_suffix}.png",
+        f"result/slope_shc_scatter_top_steep_with_top_cities{hazure_suffix}{steep_suffix}.png",
         dpi=300,
         bbox_inches="tight",
     )

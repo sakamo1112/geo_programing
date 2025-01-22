@@ -59,9 +59,9 @@ kyogikai_cities = [
     "別府市",
     "北九州市",
 ]
+three_cities_list = ["長崎市", "佐世保市", "横須賀市"]
 
-
-def calc_terrain_of_a_city(city_name, housing_area_path, src):
+def calc_terrain_of_a_city(city_name, housing_area_path, src, transform):
     # 住居系用途地域のSHPファイルを読み込む
     housing_area_gdf = gpd.read_file(housing_area_path)
 
@@ -88,7 +88,7 @@ def calc_terrain_of_a_city(city_name, housing_area_path, src):
             housing_area_slope_removed,
             steep_ratio,
         ) = calc_and_visualize_slope(
-            city_name, bbox_elevation, housing_mask, visualize=True
+            city_name, bbox_elevation, housing_mask, transform, housing_area_gdf, visualize=True
         )
         housing_area_shc, housing_area_shc_removed = calc_and_visualize_shc(
             city_name, bbox_elevation, housing_mask, visualize=True
@@ -152,8 +152,14 @@ def calc_terrain_of_283cities(pref_code_dict):
                 print(f"DEM Path: {area_dem_path}")
                 print("DEM読み込み中...")
                 with rasterio.open(area_dem_path) as src:
+                    print("入力DEM情報:")
+                    print(f"CRS: {src.crs}")
+                    print(f"Transform: {src.transform}")
+                    print(f"Bounds: {src.bounds}")
+                    print(f"Shape: {src.shape}")
                     elevation = src.read(1)  # 最初のバンドを取得
                     elevation = np.where(elevation == -9999, np.nan, elevation)
+                    transform = src.transform
                     print("DEM読み込み完了")
 
                     # 各県内の住居系用途地域のパスを取得
@@ -177,14 +183,16 @@ def calc_terrain_of_283cities(pref_code_dict):
                                     f"\n-----{city_name}-----\nshapefile Path: {housing_area_path}"
                                 )
                                 print(f"{city_name}の傾斜度計算中...")
-                                city_terrain_stats = calc_terrain_of_a_city(
-                                    city_name, housing_area_path, src
-                                )
-                                df_stats = pd.concat(
-                                    [df_stats, pd.DataFrame([city_terrain_stats])],
-                                    ignore_index=True,
-                                )
-                                counter += 1
+                                name = city_name.split("_")[1].split("(")[0]
+                                if name in three_cities_list:
+                                    city_terrain_stats = calc_terrain_of_a_city(
+                                        city_name, housing_area_path, src, transform
+                                    )
+                                    df_stats = pd.concat(
+                                        [df_stats, pd.DataFrame([city_terrain_stats])],
+                                        ignore_index=True,
+                                    )
+                                    counter += 1
                     print(df_stats)
     print(f"{counter}件のデータを作成しました。")
 
@@ -201,8 +209,8 @@ if __name__ == "__main__":
         pref_code = row["都道府県名"].split("_")[0]  # "(都道府県コード)_都道府県名" から都道府県コードを抽出
         pref_code_dict[pref_name] = pref_code
 
-    if_calc_terrain = False
-    if_visualize_terrain = True
+    if_calc_terrain = True
+    if_visualize_terrain = False
 
     if if_calc_terrain:
         # 283都市の標高・傾斜度・SHCを計算し、エクセルデータを作成

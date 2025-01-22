@@ -1,6 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.ndimage import convolve
+import rasterio
+from rasterio.transform import from_origin, from_bounds, Affine
+import pyproj
 
 
 def calc_and_visualize_height(
@@ -41,7 +44,7 @@ def calc_and_visualize_height(
     return housing_area_height
 
 
-def calc_and_visualize_slope(city_name, bbox_elevation, housing_mask, visualize=True):
+def calc_and_visualize_slope(city_name, bbox_elevation, housing_mask, transform, housing_area_gdf, visualize=True):
     """
     傾斜度の計算と可視化を行い、住居系用途地域の傾斜度データを返す。
 
@@ -84,6 +87,44 @@ def calc_and_visualize_slope(city_name, bbox_elevation, housing_mask, visualize=
         cbar.set_label("傾斜度 (度)")
         ax1.set_title(f"{city_name}の傾斜度分布")
         ax1.axis("off")
+    
+    # GeoTIFFとして保存
+    name = city_name.split("_")[1].split("(")[0]
+    output_path = f'result/slope/slope_{name}.tif'
+    crs_dict = {
+        "横須賀市": "EPSG:6677",  # 平面直角座標系9系
+        "長崎市": "EPSG:6669",    # 平面直角座標系1系
+        "佐世保市": "EPSG:6669",  # 平面直角座標系1系
+    }
+    bounds = housing_area_gdf.total_bounds  # [minx, miny, maxx, maxy]
+    
+    if housing_area_gdf.crs.to_string() == "EPSG:4326":
+        transformer = pyproj.Transformer.from_crs(
+            "EPSG:4326",         # 入力：緯度経度（WGS84）
+            crs_dict[name],      # 出力：各都市の平面直角座標系
+            always_xy=True       # x,y順（経度,緯度）で扱う
+        )
+        left, bottom = transformer.transform(bounds[0], bounds[1])
+        right, top = transformer.transform(bounds[2], bounds[3])
+    else:
+        left, bottom, right, top = bounds
+    
+    pixel_size_x = (right - left) / slope.shape[1]
+    pixel_size_y = (top - bottom) / slope.shape[0]
+    transform = Affine(pixel_size_x, 0, left, 0, -pixel_size_y, top)
+    
+    with rasterio.open(
+        output_path,
+        'w',
+        driver='GTiff',
+        height=slope.shape[0],
+        width=slope.shape[1],
+        count=1,
+        dtype=slope.dtype,
+        crs=crs_dict[name],
+        transform=transform
+    ) as dst:
+        dst.write(slope, 1)
 
     # 傾斜度の区分ごとの割合を計算
     bins = [0, 5, 10, 15, 20, 25, np.inf]

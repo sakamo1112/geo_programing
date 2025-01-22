@@ -1,4 +1,5 @@
 import os
+import subprocess
 
 import geopandas as gpd
 import matplotlib.pyplot as plt
@@ -24,7 +25,7 @@ DEM_DIR = "/Users/sakamo/Desktop/GISDATA/DEM_地方別/"
 HOUSING_AREA_DIR = "/Users/sakamo/Desktop/GISDATA/住居系用途地域2019_10万人以上の自治体_全国/"
 # 住居系用途地域2019_10万人以上の自治体_全国/A29-19_(都道府県コード)/以下にhousing_(自治体名).shpファイルが格納されている
 TARGET_LIST_EXCEL = "/Users/sakamo/Desktop/GISDATA/10man_status.xlsx"
-RESULT_XLSX = "result/sasebo_terrain_statistics.xlsx"
+RESULT_XLSX_SASEBO = "result/sasebo_terrain_statistics.xlsx"
 
 SASEBO_DEM = "/Users/sakamo/Desktop/GISDATA/DEM_地方別/九州.tif"
 SASEBO_COMMUNITY = "/Users/sakamo/Desktop/GISDATA/自治協議会/16_182294.SHP" # 自治協議会(町内会、自治会、協議会)
@@ -36,6 +37,13 @@ SASEBO_ROAD_2_KOBETSU = "/Users/sakamo/Desktop/GISDATA/佐世保市_道路/2項(
 SASEBO_ROAD_3 = "/Users/sakamo/Desktop/GISDATA/佐世保市_道路/3項道路/3項.shp"
 SASEBO_ROAD_CITY = "/Users/sakamo/Desktop/GISDATA/佐世保市_道路/市道(路線)/01_路線.shp"
 SASEBO_OBJ = "PATH_TO_PLATEAU_DATA"
+RESULT_SHP_SASEBO = "/Users/sakamo/Desktop/GISDATA/自治協議会/sasebo_community.shp"
+
+YOKOSUKA_DEM = "/Users/sakamo/Desktop/GISDATA/DEM_地方別/関東.tif"
+YOKOSUKA_COMMUNITY = "/Users/sakamo/Desktop/GISDATA/横須賀市_地域コミュニティ/D_20231219_043504_504D273F.shp"
+RESULT_SHP_YOKOSUKA = "/Users/sakamo/Desktop/GISDATA/横須賀市_地域コミュニティ/yokosuka_community.shp"
+YOKOSUKA_HOUSING_AREA = "/Users/sakamo/Desktop/GISDATA/住居系用途地域2019_10万人以上の自治体_全国/A29-19_14/housing_横須賀市.shp"
+RESULT_XLSX_YOKOSUKA = "result/yokosuka_terrain_statistics.xlsx"
 
 files_to_check = [
         DEM_DIR,
@@ -50,6 +58,9 @@ files_to_check = [
         SASEBO_ROAD_2_KOBETSU,
         SASEBO_ROAD_3,
         SASEBO_ROAD_CITY,
+        YOKOSUKA_DEM,
+        YOKOSUKA_COMMUNITY,
+        YOKOSUKA_HOUSING_AREA,
     ]
 
 
@@ -794,82 +805,18 @@ def create_shc_map(sasebo_community, sasebo_housing_area, stats_df):
     plt.savefig('result/shc_map.png', dpi=300, bbox_inches='tight')
     plt.close()
 
-if __name__ == "__main__":
-    # ファイルの存在確認
-    if not all(check_file_exists(file) for file in files_to_check):
-        print("一部のファイルが見つかりませんでした。プログラムを終了します。")
-        exit(1)
-    else:
-        print("file path OK")
-    
-    # データの読み込み
-    sasebo_community = gpd.read_file(SASEBO_COMMUNITY, encoding='cp932')
-    sasebo_housing_area = gpd.read_file(SASEBO_HOUSING_AREA, encoding='cp932')
-    road_1_4 = gpd.read_file(SASEBO_ROAD_1_4, encoding='cp932')
-    road_1_5 = gpd.read_file(SASEBO_ROAD_1_5, encoding='cp932')
-    road_2_ikkatsu = gpd.read_file(SASEBO_ROAD_2_IKKATSU, encoding='cp932')
-    road_2_kobetsu = gpd.read_file(SASEBO_ROAD_2_KOBETSU, encoding='cp932')
-    road_3 = gpd.read_file(SASEBO_ROAD_3, encoding='cp932')
-    road_city = gpd.read_file(SASEBO_ROAD_CITY, encoding='cp932', ignore_fields=['認定年月日'])
-    # CRSの設定
-    sasebo_community = sasebo_community.set_crs(epsg=6669).to_crs(epsg=4326)
-    sasebo_housing_area = sasebo_housing_area.set_crs(epsg=4326)
-    road_1_4 = road_1_4.set_crs(epsg=6669).to_crs(epsg=4326)
-    road_1_5 = road_1_5.set_crs(epsg=6669).to_crs(epsg=4326)
-    road_2_ikkatsu = road_2_ikkatsu.set_crs(epsg=6669).to_crs(epsg=4326)
-    road_2_kobetsu = road_2_kobetsu.set_crs(epsg=6669).to_crs(epsg=4326)
-    road_3 = road_3.set_crs(epsg=6669).to_crs(epsg=4326)
-    road_city = road_city.set_crs(epsg=6669).to_crs(epsg=4326)
+def create_com_shp(community, housing_area, terrain_stats_df, output_path):
+    """
+    地形統計情報を含むシェープファイルを作成する関数
 
-    """# 描画
-    fig, ax = plt.subplots(figsize=(10, 10))
-    sasebo_community.plot(ax=ax, facecolor='none', edgecolor='black', linewidth=1, label='コミュニティ')
-    sasebo_housing_area.plot(ax=ax, alpha=0.5, color='yellow', label='住居系用途地域')
-    road_1_4.plot(ax=ax, color='red', linewidth=1, label='1項4号道路')
-    road_1_5.plot(ax=ax, color='blue', linewidth=1, label='1項5号道路')
-    road_2_ikkatsu.plot(ax=ax, color='green', linewidth=1, label='2項道路(一括)')
-    road_2_kobetsu.plot(ax=ax, color='purple', linewidth=1, label='2項道路(個別)')
-    road_3.plot(ax=ax, color='orange', linewidth=1, label='3項道路')
-    road_city.plot(ax=ax, color='red', linewidth=1, label='市道')
-
-    plt.xlim(left=0)
-
-    ax.set_title('佐世保市の道路網と住居系用途地域')
-    ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    plt.tight_layout()
-    plt.show()"""
-
-    # 住居系用途地域と重なるコミュニティを抽出
-    housing_area_union = sasebo_housing_area.geometry.buffer(0).unary_union
-    sasebo_community['geometry'] = sasebo_community.geometry.buffer(0)
-    sasebo_community = sasebo_community[sasebo_community.geometry.intersects(housing_area_union)]
-    print(f"住居系用途地域と重なるコミュニティ数: {len(sasebo_community)}")
-
-    # 地形統計情報を格納するリスト
-    terrain_stats_df = pd.DataFrame()
-
-    """with rasterio.open(SASEBO_DEM) as src:
-        print("DEM読み込み完了")
-        # 各コミュニティの傾斜度・SHCを計算
-        for com_id, name in zip(sasebo_community['KANRIID'], sasebo_community['NAME']):
-            com_area = sasebo_community[sasebo_community['KANRIID'] == com_id].copy()
-            terrain_stats = calc_slope_and_shc(com_id, name, com_area, src, sasebo_housing_area)
-            if terrain_stats is not None:
-                terrain_stats_df = pd.concat(
-                                    [terrain_stats_df, pd.DataFrame([terrain_stats])],
-                                    ignore_index=True,
-                                )
-                print(f"{len(terrain_stats_df)}/{len(sasebo_community)}の処理が完了。")
-                print(terrain_stats)
-    terrain_stats_df.to_excel(RESULT_XLSX, index=False)"""
-    
-    # マップの作成
-    terrain_stats_df = pd.read_excel(RESULT_XLSX)
-    create_slope_map(sasebo_community, sasebo_housing_area, terrain_stats_df)
-    create_shc_map(sasebo_community, sasebo_housing_area, terrain_stats_df)
-    
+    Args:
+        community (GeoDataFrame): コミュニティのジオデータフレーム
+        housing_area (GeoDataFrame): 住居系用途地域のジオデータフレーム
+        terrain_stats_df (DataFrame): 地形統計情報のデータフレーム
+        output_path (str): 出力するシェープファイルのパス
+    """
     # 地形統計情報をコミュニティのシェープファイルに結合
-    merged_community = sasebo_community.merge(
+    merged_community = community.merge(
         terrain_stats_df,
         left_on='KANRIID',
         right_on='ID',
@@ -879,6 +826,13 @@ if __name__ == "__main__":
     # 不要な列を削除
     if 'ID' in merged_community.columns:
         merged_community = merged_community.drop('ID', axis=1)
+    
+    # コミュニティを住居系用途地域で切り抜く
+    housing_union = housing_area.unary_union
+    merged_community['geometry'] = merged_community.geometry.intersection(housing_union)
+    
+    # 空の（完全に切り取られた）ジオメトリを持つ行を削除
+    merged_community = merged_community[~merged_community.geometry.is_empty]
     
     # カラム名を短く、英語に変更（シェープファイルの制限に対応）
     column_mapping = {
@@ -893,13 +847,82 @@ if __name__ == "__main__":
         'SHC_標準偏差': 'shc_std',
         '住居系用途地域に占める斜面市街地の割合': 'steep_ratio'
     }
-    
     merged_community = merged_community.rename(columns=column_mapping)
     
     # 出力ディレクトリの作成
-    os.makedirs('result', exist_ok=True)
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
     
     # シェープファイルとして出力
-    output_path = "result/sasebo_community_with_terrain_stats.shp"
     merged_community.to_file(output_path, encoding='cp932', driver='ESRI Shapefile')
     print(f"地形統計情報を含むシェープファイルを出力しました: {output_path}")
+    
+    return merged_community
+
+if __name__ == "__main__":
+    # caffeinate プロセスを開始
+    caffeinate_process = subprocess.Popen(['caffeinate', '-i'])
+    
+    try:
+        # ファイルの存在確認
+        if not all(check_file_exists(file) for file in files_to_check):
+            print("一部のファイルが見つかりませんでした。プログラムを終了します。")
+            exit(1)
+        else:
+            print("file path OK")
+            
+        # データの読み込み
+        sasebo_community = gpd.read_file(SASEBO_COMMUNITY, encoding='cp932')
+        yokosuka_community = gpd.read_file(YOKOSUKA_COMMUNITY, encoding='cp932')
+        sasebo_housing_area = gpd.read_file(SASEBO_HOUSING_AREA, encoding='cp932')
+        yokosuka_housing_area = gpd.read_file(YOKOSUKA_HOUSING_AREA, encoding='cp932')
+        road_1_4 = gpd.read_file(SASEBO_ROAD_1_4, encoding='cp932')
+        road_1_5 = gpd.read_file(SASEBO_ROAD_1_5, encoding='cp932')
+        road_2_ikkatsu = gpd.read_file(SASEBO_ROAD_2_IKKATSU, encoding='cp932')
+        road_2_kobetsu = gpd.read_file(SASEBO_ROAD_2_KOBETSU, encoding='cp932')
+        road_3 = gpd.read_file(SASEBO_ROAD_3, encoding='cp932')
+        road_city = gpd.read_file(SASEBO_ROAD_CITY, encoding='cp932', ignore_fields=['認定年月日'])
+        # CRSの設定
+        sasebo_community = sasebo_community.set_crs(epsg=6669).to_crs(epsg=4326)
+        sasebo_housing_area = sasebo_housing_area.set_crs(epsg=4326)
+        road_1_4 = road_1_4.set_crs(epsg=6669).to_crs(epsg=4326)
+        road_1_5 = road_1_5.set_crs(epsg=6669).to_crs(epsg=4326)
+        road_2_ikkatsu = road_2_ikkatsu.set_crs(epsg=6669).to_crs(epsg=4326)
+        road_2_kobetsu = road_2_kobetsu.set_crs(epsg=6669).to_crs(epsg=4326)
+        road_3 = road_3.set_crs(epsg=6669).to_crs(epsg=4326)
+        road_city = road_city.set_crs(epsg=6669).to_crs(epsg=4326)
+
+        # 地形統計情報を格納するリスト
+        terrain_stats_df = pd.DataFrame()
+
+        community = sasebo_community
+        housing_area = sasebo_housing_area
+        DEM_PATH = SASEBO_DEM
+        RESULT_XLSX_PATH = RESULT_XLSX_SASEBO
+        RESULT_SHP_PATH = RESULT_SHP_SASEBO
+
+        # 住居系用途地域と重なるコミュニティを抽出
+        housing_area_union = housing_area.geometry.buffer(0).unary_union
+        community['geometry'] = community.geometry.buffer(0)
+        community = community[community.geometry.intersects(housing_area_union)]
+        print(f"住居系用途地域と重なるコミュニティ数: {len(community)}")
+
+        with rasterio.open(DEM_PATH) as src:
+            print("DEM読み込み完了")
+            # 各コミュニティの傾斜度・SHCを計算
+            for com_id, name in zip(community['KANRIID'], community['NAME']):
+                com_area = community[community['KANRIID'] == com_id].copy()
+                terrain_stats = calc_slope_and_shc(com_id, name, com_area, src, housing_area)
+                if terrain_stats is not None:
+                    terrain_stats_df = pd.concat(
+                                        [terrain_stats_df, pd.DataFrame([terrain_stats])],
+                                        ignore_index=True,
+                                    )
+                    print(f"{len(terrain_stats_df)}/{len(community)}の処理が完了。")
+                    print(terrain_stats)
+        terrain_stats_df.to_excel(RESULT_XLSX_PATH, index=False)
+        create_slope_map(community, housing_area, terrain_stats_df)
+        create_shc_map(community, housing_area, terrain_stats_df)
+        merged_community = create_com_shp(community, housing_area, terrain_stats_df, RESULT_SHP_PATH)
+
+    finally:
+        caffeinate_process.terminate()

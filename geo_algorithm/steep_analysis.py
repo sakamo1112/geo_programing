@@ -1,15 +1,12 @@
 import os
 import subprocess
 
+import fiona
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.ndimage import convolve
 import pandas as pd
 import rasterio
-import fiona
-from rasterio.mask import mask
-from shapely.geometry import box
 from create_terrain_graph import (
     visualize_slope_area_ratio_histogram,
     visualize_slope_ratio_vs_median_slope,
@@ -19,6 +16,9 @@ from create_terrain_graph import (
     visualize_top_cities_on_map,
     visualize_top_steep_cities_comparison,
 )
+from rasterio.mask import mask
+from scipy.ndimage import convolve
+from shapely.geometry import box
 
 DEM_DIR = "/Users/sakamo/Desktop/GISDATA/DEM_地方別/"
 # DEM_地方別/以下に地方名.tifファイルが格納されている
@@ -28,8 +28,12 @@ TARGET_LIST_EXCEL = "/Users/sakamo/Desktop/GISDATA/10man_status.xlsx"
 RESULT_XLSX_SASEBO = "result/sasebo_terrain_statistics.xlsx"
 
 SASEBO_DEM = "/Users/sakamo/Desktop/GISDATA/DEM_地方別/九州.tif"
-SASEBO_COMMUNITY = "/Users/sakamo/Desktop/GISDATA/自治協議会/16_182294.SHP" # 自治協議会(町内会、自治会、協議会)
-SASEBO_HOUSING_AREA = "/Users/sakamo/Desktop/GISDATA/住居系用途地域2019_10万人以上の自治体_全国/A29-19_42/housing_佐世保市.shp"
+SASEBO_COMMUNITY = (
+    "/Users/sakamo/Desktop/GISDATA/自治協議会/16_182294.SHP"  # 自治協議会(町内会、自治会、協議会)
+)
+SASEBO_HOUSING_AREA = (
+    "/Users/sakamo/Desktop/GISDATA/住居系用途地域2019_10万人以上の自治体_全国/A29-19_42/housing_佐世保市.shp"
+)
 SASEBO_ROAD_1_4 = "/Users/sakamo/Desktop/GISDATA/佐世保市_道路/1項4号道路/1項4号.shp"
 SASEBO_ROAD_1_5 = "/Users/sakamo/Desktop/GISDATA/佐世保市_道路/1項5号道路/16_188764.SHP"
 SASEBO_ROAD_2_IKKATSU = "/Users/sakamo/Desktop/GISDATA/佐世保市_道路/2項(一括指定)道路/16_188807.SHP"
@@ -40,28 +44,34 @@ SASEBO_OBJ = "PATH_TO_PLATEAU_DATA"
 RESULT_SHP_SASEBO = "/Users/sakamo/Desktop/GISDATA/自治協議会/sasebo_community.shp"
 
 YOKOSUKA_DEM = "/Users/sakamo/Desktop/GISDATA/DEM_地方別/関東.tif"
-YOKOSUKA_COMMUNITY = "/Users/sakamo/Desktop/GISDATA/横須賀市_地域コミュニティ/D_20231219_043504_504D273F.shp"
-RESULT_SHP_YOKOSUKA = "/Users/sakamo/Desktop/GISDATA/横須賀市_地域コミュニティ/yokosuka_community.shp"
-YOKOSUKA_HOUSING_AREA = "/Users/sakamo/Desktop/GISDATA/住居系用途地域2019_10万人以上の自治体_全国/A29-19_14/housing_横須賀市.shp"
+YOKOSUKA_COMMUNITY = (
+    "/Users/sakamo/Desktop/GISDATA/横須賀市_地域コミュニティ/D_20231219_043504_504D273F.shp"
+)
+RESULT_SHP_YOKOSUKA = (
+    "/Users/sakamo/Desktop/GISDATA/横須賀市_地域コミュニティ/yokosuka_community.shp"
+)
+YOKOSUKA_HOUSING_AREA = (
+    "/Users/sakamo/Desktop/GISDATA/住居系用途地域2019_10万人以上の自治体_全国/A29-19_14/housing_横須賀市.shp"
+)
 RESULT_XLSX_YOKOSUKA = "result/yokosuka_terrain_statistics.xlsx"
 
 files_to_check = [
-        DEM_DIR,
-        HOUSING_AREA_DIR,
-        TARGET_LIST_EXCEL,
-        SASEBO_DEM,
-        SASEBO_COMMUNITY,
-        SASEBO_HOUSING_AREA,
-        SASEBO_ROAD_1_4,
-        SASEBO_ROAD_1_5,
-        SASEBO_ROAD_2_IKKATSU,
-        SASEBO_ROAD_2_KOBETSU,
-        SASEBO_ROAD_3,
-        SASEBO_ROAD_CITY,
-        YOKOSUKA_DEM,
-        YOKOSUKA_COMMUNITY,
-        YOKOSUKA_HOUSING_AREA,
-    ]
+    DEM_DIR,
+    HOUSING_AREA_DIR,
+    TARGET_LIST_EXCEL,
+    SASEBO_DEM,
+    SASEBO_COMMUNITY,
+    SASEBO_HOUSING_AREA,
+    SASEBO_ROAD_1_4,
+    SASEBO_ROAD_1_5,
+    SASEBO_ROAD_2_IKKATSU,
+    SASEBO_ROAD_2_KOBETSU,
+    SASEBO_ROAD_3,
+    SASEBO_ROAD_CITY,
+    YOKOSUKA_DEM,
+    YOKOSUKA_COMMUNITY,
+    YOKOSUKA_HOUSING_AREA,
+]
 
 
 def calc_and_visualize_height(
@@ -87,7 +97,7 @@ def calc_and_visualize_height(
         fig, ax = plt.subplots(figsize=(10, 8))
         # 標高データの表示
         im = ax.imshow(bbox_elevation, cmap="terrain", aspect="equal", vmin=0, vmax=500)
-        
+
         # コミュニティ外を灰色で表示
         ax.imshow(
             np.where(com_mask == 0, 0.7, np.nan),
@@ -95,21 +105,24 @@ def calc_and_visualize_height(
             alpha=0.8,
             aspect="equal",
         )
-        
+
         # 住居系用途地域外のハッチング描画を修正
         non_housing_area = np.where((com_mask == 1) & (housing_mask == 0), 1, np.nan)
-        
+
         # マスクの位置に合わせてハッチングを描画
         for i in range(non_housing_area.shape[0]):
             for j in range(non_housing_area.shape[1]):
                 if not np.isnan(non_housing_area[i, j]):
-                    ax.add_patch(plt.Rectangle(
-                        (j - 0.5, i - 0.5),  # 位置を調整
-                        1, 1,                 # 幅と高さ
-                        fill=False,
-                        hatch='///',
-                        alpha=0.3
-                    ))
+                    ax.add_patch(
+                        plt.Rectangle(
+                            (j - 0.5, i - 0.5),  # 位置を調整
+                            1,
+                            1,  # 幅と高さ
+                            fill=False,
+                            hatch="///",
+                            alpha=0.3,
+                        )
+                    )
 
         cbar = plt.colorbar(im)
         cbar.set_label("標高 [m]")
@@ -141,10 +154,10 @@ def calc_and_visualize_slope(
     """
     # 傾斜度の計算
     slope = calc_slope(bbox_elevation)
-    
+
     # コミュニティ内かつ住居系用途地域内のデータのみを抽出
     com_area_slope = np.where((com_mask == 1) & (housing_mask == 1), slope, np.nan)
-    
+
     # 有効なデータがあるか確認
     valid_data = com_area_slope[~np.isnan(com_area_slope)]
     if len(valid_data) == 0:
@@ -161,7 +174,7 @@ def calc_and_visualize_slope(
 
         # 左側：傾斜度の分布図
         im = ax1.imshow(slope, cmap="autumn_r", aspect="equal", vmin=0, vmax=45)
-        
+
         # コミュニティ外を灰色で表示
         ax1.imshow(
             np.where(com_mask == 0, 0.7, np.nan),
@@ -169,23 +182,21 @@ def calc_and_visualize_slope(
             alpha=0.8,
             aspect="equal",
         )
-        
+
         # 住居系用途地域外（コミュニティ内）に網掛けを追加
         non_housing_area = np.where((com_mask == 1) & (housing_mask == 0), 1, np.nan)
         for i in range(non_housing_area.shape[0]):
             for j in range(non_housing_area.shape[1]):
                 if not np.isnan(non_housing_area[i, j]):
-                    ax1.add_patch(plt.Rectangle(
-                        (j - 0.5, i - 0.5),
-                        1, 1,
-                        fill=False,
-                        hatch='///',
-                        alpha=0.3
-                    ))
+                    ax1.add_patch(
+                        plt.Rectangle(
+                            (j - 0.5, i - 0.5), 1, 1, fill=False, hatch="///", alpha=0.3
+                        )
+                    )
         # カラーバーの描画（axを明示的に指定）
         cbar = fig.colorbar(im, ax=ax1)
         cbar.set_label("傾斜度 (度)")
-        
+
         ax1.set_title(f"{com_name}の傾斜度分布\n(斜線部: 住居系用途地域外)")
         ax1.axis("off")
 
@@ -261,10 +272,10 @@ def calc_and_visualize_shc(
     window_size = 10
     _, plan_curv = calc_profile_and_plan_curvature(bbox_elevation)
     bbox_shc = calc_shc(plan_curv, window_size)
-    
+
     # コミュニティ内かつ住居系用途地域内のデータのみを抽出
     com_area_shc = np.where((com_mask == 1) & (housing_mask == 1), bbox_shc, np.nan)
-    
+
     # 有効なデータがあるか確認
     valid_data = com_area_shc[~np.isnan(com_area_shc)]
     if len(valid_data) == 0:
@@ -276,7 +287,7 @@ def calc_and_visualize_shc(
         vmax = 0.15
 
         im = ax.imshow(bbox_shc, cmap="viridis", aspect="equal", vmin=0, vmax=vmax)
-        
+
         # コミュニティ外を灰色で表示
         ax.imshow(
             np.where(com_mask == 0, 0.7, np.nan),
@@ -284,27 +295,27 @@ def calc_and_visualize_shc(
             alpha=0.8,
             aspect="equal",
         )
-        
+
         # 住居系用途地域外（コミュニティ内）に網掛けを追加
         non_housing_area = np.where((com_mask == 1) & (housing_mask == 0), 1, np.nan)
         for i in range(non_housing_area.shape[0]):
             for j in range(non_housing_area.shape[1]):
                 if not np.isnan(non_housing_area[i, j]):
-                    ax.add_patch(plt.Rectangle(
-                        (j - 0.5, i - 0.5),
-                        1, 1,
-                        fill=False,
-                        hatch='///',
-                        alpha=0.3
-                    ))
+                    ax.add_patch(
+                        plt.Rectangle(
+                            (j - 0.5, i - 0.5), 1, 1, fill=False, hatch="///", alpha=0.3
+                        )
+                    )
 
         # カラーバーの描画（axを明示的に指定）
         cbar = fig.colorbar(im, ax=ax)
         cbar.set_label("SHC")
-        
-        ax.set_title(f"{com_name}の平面曲率標準偏差(SHC)\n"
-                    f"(移動窓: 半径{window_size*10}mの円)\n"
-                    "(斜線部: 住居系用途地域外)")
+
+        ax.set_title(
+            f"{com_name}の平面曲率標準偏差(SHC)\n"
+            f"(移動窓: 半径{window_size*10}mの円)\n"
+            "(斜線部: 住居系用途地域外)"
+        )
         ax.axis("off")
 
         plt.tight_layout()
@@ -591,6 +602,7 @@ def check_file_exists(file_path: str) -> bool:
         print(f"警告: ファイルが見つかりません: {file_path}")
     return exists
 
+
 # TODO: 1.データのプロット
 def plot_data():
     pass
@@ -600,7 +612,7 @@ def plot_data():
 def calc_slope_and_shc(com_id, name, com_area, src, sasebo_housing_area):
     try:
         print(f"コミュニティID: {com_id}, コミュニティ名: {name}")
-        print('maskの作成')
+        print("maskの作成")
         bounds = com_area.total_bounds
         bbox = box(*bounds)
         shapes = [bbox]
@@ -623,18 +635,15 @@ def calc_slope_and_shc(com_id, name, com_area, src, sasebo_housing_area):
             fill=0,
             dtype=np.uint8,
         )
-        print('標高')
+        print("標高")
         com_height = calc_and_visualize_height(
             com_id, name, bbox_elevation, com_mask, housing_mask, visualize=True
         )
-        print('傾斜')
-        (
-            com_slope,
-            steep_ratio,
-        ) = calc_and_visualize_slope(
+        print("傾斜")
+        (com_slope, steep_ratio,) = calc_and_visualize_slope(
             com_id, name, bbox_elevation, com_mask, housing_mask, visualize=True
         )
-        print('shc')
+        print("shc")
         com_shc = calc_and_visualize_shc(
             com_id, name, bbox_elevation, com_mask, housing_mask, visualize=True
         )
@@ -642,11 +651,19 @@ def calc_slope_and_shc(com_id, name, com_area, src, sasebo_housing_area):
         com_terrain_stats = {
             "ID": com_id,
             "NAME": name,
-            "標高_平均値": np.nan if np.all(np.isnan(com_height)) else np.nanmean(com_height),
-            "標高_中央値": np.nan if np.all(np.isnan(com_height)) else np.nanmedian(com_height),
-            "標高_標準偏差": np.nan if np.all(np.isnan(com_height)) else np.nanstd(com_height),
+            "標高_平均値": np.nan
+            if np.all(np.isnan(com_height))
+            else np.nanmean(com_height),
+            "標高_中央値": np.nan
+            if np.all(np.isnan(com_height))
+            else np.nanmedian(com_height),
+            "標高_標準偏差": np.nan
+            if np.all(np.isnan(com_height))
+            else np.nanstd(com_height),
             "傾斜度_平均値": np.nan if np.all(np.isnan(com_slope)) else np.nanmean(com_slope),
-            "傾斜度_中央値": np.nan if np.all(np.isnan(com_slope)) else np.nanmedian(com_slope),
+            "傾斜度_中央値": np.nan
+            if np.all(np.isnan(com_slope))
+            else np.nanmedian(com_slope),
             "傾斜度_標準偏差": np.nan if np.all(np.isnan(com_slope)) else np.nanstd(com_slope),
             "SHC_平均値": np.nan if np.all(np.isnan(com_shc)) else np.nanmean(com_shc),
             "SHC_中央値": np.nan if np.all(np.isnan(com_shc)) else np.nanmedian(com_shc),
@@ -657,6 +674,7 @@ def calc_slope_and_shc(com_id, name, com_area, src, sasebo_housing_area):
     except ValueError as e:
         print(f"警告: {com_id}の処理でエラーが発生: {e}")
         return None
+
 
 # TODO: 3.住民自治組織ごとに建物数のカウント、属性情報の取得ができるようにする。
 
@@ -675,74 +693,63 @@ def create_slope_map(sasebo_community, sasebo_housing_area, stats_df):
         sasebo_community (GeoDataFrame): コミュニティのジオデータフレーム
         sasebo_housing_area (GeoDataFrame): 住居系用途地域のジオデータフレーム
         stats_df (DataFrame): 各コミュニティの地形統計情報のデータフレーム
-    """    
+    """
     # コミュニティデータと統計情報をマージ
-    merged_data = sasebo_community.merge(stats_df, left_on='KANRIID', right_on='ID')
-    
+    merged_data = sasebo_community.merge(stats_df, left_on="KANRIID", right_on="ID")
+
     # コミュニティを住居系用途地域で切り抜く
     housing_union = sasebo_housing_area.unary_union
-    merged_data['geometry'] = merged_data.geometry.intersection(housing_union)
-    
+    merged_data["geometry"] = merged_data.geometry.intersection(housing_union)
+
     fig, ax = plt.subplots(figsize=(12, 12))
-    
+
     # 住居系用途地域を灰色で表示
     housing_area = sasebo_housing_area.plot(
-        ax=ax,
-        color='lightgrey',
-        alpha=0.5,
-        label='住居系用途地域'
+        ax=ax, color="lightgrey", alpha=0.5, label="住居系用途地域"
     )
-    
+
     # カスタムカラーマップの作成
     colors = ["#f0f9e8", "#bae4bc", "#7bccc4", "#43a2ca", "#0868ac", "red"]
     bounds = [0, 5, 10, 15, 20, 25, 30]  # np.infを具体的な値に変更
     norm = plt.matplotlib.colors.BoundaryNorm(bounds, len(colors))
     cmap = plt.matplotlib.colors.ListedColormap(colors)
-    
+
     # NaNを含むデータを黒で表示するため、まず黒で塗りつぶす
-    merged_data[merged_data['傾斜度_中央値'].isna()].plot(
-        ax=ax,
-        color='black',
-        alpha=0.7
-    )
-    
+    merged_data[merged_data["傾斜度_中央値"].isna()].plot(ax=ax, color="black", alpha=0.7)
+
     # 有効なデータを色分けして表示
-    merged_data[merged_data['傾斜度_中央値'].notna()].plot(
-        column='傾斜度_中央値',
+    merged_data[merged_data["傾斜度_中央値"].notna()].plot(
+        column="傾斜度_中央値",
         ax=ax,
         cmap=cmap,
         norm=norm,
         legend=True,
         legend_kwds={
-            'label': '傾斜度の中央値 [度]',
-            'orientation': 'vertical',
-            'shrink': 0.8,
-            'boundaries': bounds,
-            'ticks': bounds[:-1],
-            'format': '%g'
+            "label": "傾斜度の中央値 [度]",
+            "orientation": "vertical",
+            "shrink": 0.8,
+            "boundaries": bounds,
+            "ticks": bounds[:-1],
+            "format": "%g",
         },
-        alpha=0.7
+        alpha=0.7,
     )
-    
+
     # コミュニティの境界線を黒で表示
-    merged_data.boundary.plot(
-        ax=ax,
-        color='black',
-        linewidth=0.5,
-        alpha=0.5
-    )
-    
-    ax.set_title('コミュニティごとの傾斜度中央値\n(住居系用途地域内)', pad=20, fontsize=14)
-    ax.axis('off')
-    
+    merged_data.boundary.plot(ax=ax, color="black", linewidth=0.5, alpha=0.5)
+
+    ax.set_title("コミュニティごとの傾斜度中央値\n(住居系用途地域内)", pad=20, fontsize=14)
+    ax.axis("off")
+
     # 凡例を追加（handles引数を明示的に指定）
     handles = [housing_area]
-    labels = ['住居系用途地域']
-    ax.legend(handles=handles, labels=labels, loc='upper left')
-    
+    labels = ["住居系用途地域"]
+    ax.legend(handles=handles, labels=labels, loc="upper left")
+
     plt.tight_layout()
-    plt.savefig('result/slope_map.png', dpi=300, bbox_inches='tight')
+    plt.savefig("result/slope_map.png", dpi=300, bbox_inches="tight")
     plt.close()
+
 
 def create_shc_map(sasebo_community, sasebo_housing_area, stats_df):
     """
@@ -754,56 +761,45 @@ def create_shc_map(sasebo_community, sasebo_housing_area, stats_df):
         terrain_stats_list (list): 各コミュニティの地形統計情報のリスト
     """
     # コミュニティデータと統計情報をマージ
-    merged_data = sasebo_community.merge(stats_df, left_on='KANRIID', right_on='ID')
-    
+    merged_data = sasebo_community.merge(stats_df, left_on="KANRIID", right_on="ID")
+
     # コミュニティを住居系用途地域で切り抜く
     housing_union = sasebo_housing_area.unary_union
-    merged_data['geometry'] = merged_data.geometry.intersection(housing_union)
-    
+    merged_data["geometry"] = merged_data.geometry.intersection(housing_union)
+
     fig, ax = plt.subplots(figsize=(12, 12))
-    
+
     # 住居系用途地域を灰色で表示
     housing_area = sasebo_housing_area.plot(
-        ax=ax,
-        color='lightgrey',
-        alpha=0.5,
-        label='住居系用途地域'
+        ax=ax, color="lightgrey", alpha=0.5, label="住居系用途地域"
     )
-    
+
     # SHCの平均値でコミュニティを色分け
     merged_data.plot(
-        column='SHC_平均値',
+        column="SHC_平均値",
         ax=ax,
         legend=True,
-        legend_kwds={
-            'label': 'SHCの平均値',
-            'orientation': 'vertical',
-            'shrink': 0.8
-        },
-        cmap='viridis',
+        legend_kwds={"label": "SHCの平均値", "orientation": "vertical", "shrink": 0.8},
+        cmap="viridis",
         alpha=0.7,
-        missing_kwds={'color': 'white'}
+        missing_kwds={"color": "white"},
     )
-    
+
     # コミュニティの境界線を黒で表示
-    merged_data.boundary.plot(
-        ax=ax,
-        color='black',
-        linewidth=0.5,
-        alpha=0.5
-    )
-    
-    ax.set_title('コミュニティごとのSHC平均値\n(住居系用途地域内)', pad=20, fontsize=14)
-    ax.axis('off')
-    
+    merged_data.boundary.plot(ax=ax, color="black", linewidth=0.5, alpha=0.5)
+
+    ax.set_title("コミュニティごとのSHC平均値\n(住居系用途地域内)", pad=20, fontsize=14)
+    ax.axis("off")
+
     # 凡例を追加（handles引数を明示的に指定）
     handles = [housing_area]
-    labels = ['住居系用途地域']
-    ax.legend(handles=handles, labels=labels, loc='upper left')
-    
+    labels = ["住居系用途地域"]
+    ax.legend(handles=handles, labels=labels, loc="upper left")
+
     plt.tight_layout()
-    plt.savefig('result/shc_map.png', dpi=300, bbox_inches='tight')
+    plt.savefig("result/shc_map.png", dpi=300, bbox_inches="tight")
     plt.close()
+
 
 def create_com_shp(community, housing_area, terrain_stats_df, output_path):
     """
@@ -817,51 +813,49 @@ def create_com_shp(community, housing_area, terrain_stats_df, output_path):
     """
     # 地形統計情報をコミュニティのシェープファイルに結合
     merged_community = community.merge(
-        terrain_stats_df,
-        left_on='KANRIID',
-        right_on='ID',
-        how='left'
+        terrain_stats_df, left_on="KANRIID", right_on="ID", how="left"
     )
-    
+
     # 不要な列を削除
-    if 'ID' in merged_community.columns:
-        merged_community = merged_community.drop('ID', axis=1)
-    
+    if "ID" in merged_community.columns:
+        merged_community = merged_community.drop("ID", axis=1)
+
     # コミュニティを住居系用途地域で切り抜く
     housing_union = housing_area.unary_union
-    merged_community['geometry'] = merged_community.geometry.intersection(housing_union)
-    
+    merged_community["geometry"] = merged_community.geometry.intersection(housing_union)
+
     # 空の（完全に切り取られた）ジオメトリを持つ行を削除
     merged_community = merged_community[~merged_community.geometry.is_empty]
-    
+
     # カラム名を短く、英語に変更（シェープファイルの制限に対応）
     column_mapping = {
-        '標高_平均値': 'elev_mean',
-        '標高_中央値': 'elev_med',
-        '標高_標準偏差': 'elev_std',
-        '傾斜度_平均値': 'slope_mean',
-        '傾斜度_中央値': 'slope_med',
-        '傾斜度_標準偏差': 'slope_std',
-        'SHC_平均値': 'shc_mean',
-        'SHC_中央値': 'shc_med',
-        'SHC_標準偏差': 'shc_std',
-        '住居系用途地域に占める斜面市街地の割合': 'steep_ratio'
+        "標高_平均値": "elev_mean",
+        "標高_中央値": "elev_med",
+        "標高_標準偏差": "elev_std",
+        "傾斜度_平均値": "slope_mean",
+        "傾斜度_中央値": "slope_med",
+        "傾斜度_標準偏差": "slope_std",
+        "SHC_平均値": "shc_mean",
+        "SHC_中央値": "shc_med",
+        "SHC_標準偏差": "shc_std",
+        "住居系用途地域に占める斜面市街地の割合": "steep_ratio",
     }
     merged_community = merged_community.rename(columns=column_mapping)
-    
+
     # 出力ディレクトリの作成
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    
+
     # シェープファイルとして出力
-    merged_community.to_file(output_path, encoding='cp932', driver='ESRI Shapefile')
+    merged_community.to_file(output_path, encoding="cp932", driver="ESRI Shapefile")
     print(f"地形統計情報を含むシェープファイルを出力しました: {output_path}")
-    
+
     return merged_community
+
 
 if __name__ == "__main__":
     # caffeinate プロセスを開始
-    caffeinate_process = subprocess.Popen(['caffeinate', '-i'])
-    
+    caffeinate_process = subprocess.Popen(["caffeinate", "-i"])
+
     try:
         # ファイルの存在確認
         if not all(check_file_exists(file) for file in files_to_check):
@@ -869,18 +863,20 @@ if __name__ == "__main__":
             exit(1)
         else:
             print("file path OK")
-            
+
         # データの読み込み
-        sasebo_community = gpd.read_file(SASEBO_COMMUNITY, encoding='cp932')
-        yokosuka_community = gpd.read_file(YOKOSUKA_COMMUNITY, encoding='cp932')
-        sasebo_housing_area = gpd.read_file(SASEBO_HOUSING_AREA, encoding='cp932')
-        yokosuka_housing_area = gpd.read_file(YOKOSUKA_HOUSING_AREA, encoding='cp932')
-        road_1_4 = gpd.read_file(SASEBO_ROAD_1_4, encoding='cp932')
-        road_1_5 = gpd.read_file(SASEBO_ROAD_1_5, encoding='cp932')
-        road_2_ikkatsu = gpd.read_file(SASEBO_ROAD_2_IKKATSU, encoding='cp932')
-        road_2_kobetsu = gpd.read_file(SASEBO_ROAD_2_KOBETSU, encoding='cp932')
-        road_3 = gpd.read_file(SASEBO_ROAD_3, encoding='cp932')
-        road_city = gpd.read_file(SASEBO_ROAD_CITY, encoding='cp932', ignore_fields=['認定年月日'])
+        sasebo_community = gpd.read_file(SASEBO_COMMUNITY, encoding="cp932")
+        yokosuka_community = gpd.read_file(YOKOSUKA_COMMUNITY, encoding="cp932")
+        sasebo_housing_area = gpd.read_file(SASEBO_HOUSING_AREA, encoding="cp932")
+        yokosuka_housing_area = gpd.read_file(YOKOSUKA_HOUSING_AREA, encoding="cp932")
+        road_1_4 = gpd.read_file(SASEBO_ROAD_1_4, encoding="cp932")
+        road_1_5 = gpd.read_file(SASEBO_ROAD_1_5, encoding="cp932")
+        road_2_ikkatsu = gpd.read_file(SASEBO_ROAD_2_IKKATSU, encoding="cp932")
+        road_2_kobetsu = gpd.read_file(SASEBO_ROAD_2_KOBETSU, encoding="cp932")
+        road_3 = gpd.read_file(SASEBO_ROAD_3, encoding="cp932")
+        road_city = gpd.read_file(
+            SASEBO_ROAD_CITY, encoding="cp932", ignore_fields=["認定年月日"]
+        )
         # CRSの設定
         sasebo_community = sasebo_community.set_crs(epsg=6669).to_crs(epsg=4326)
         sasebo_housing_area = sasebo_housing_area.set_crs(epsg=4326)
@@ -902,27 +898,31 @@ if __name__ == "__main__":
 
         # 住居系用途地域と重なるコミュニティを抽出
         housing_area_union = housing_area.geometry.buffer(0).unary_union
-        community['geometry'] = community.geometry.buffer(0)
+        community["geometry"] = community.geometry.buffer(0)
         community = community[community.geometry.intersects(housing_area_union)]
         print(f"住居系用途地域と重なるコミュニティ数: {len(community)}")
 
         with rasterio.open(DEM_PATH) as src:
             print("DEM読み込み完了")
             # 各コミュニティの傾斜度・SHCを計算
-            for com_id, name in zip(community['KANRIID'], community['NAME']):
-                com_area = community[community['KANRIID'] == com_id].copy()
-                terrain_stats = calc_slope_and_shc(com_id, name, com_area, src, housing_area)
+            for com_id, name in zip(community["KANRIID"], community["NAME"]):
+                com_area = community[community["KANRIID"] == com_id].copy()
+                terrain_stats = calc_slope_and_shc(
+                    com_id, name, com_area, src, housing_area
+                )
                 if terrain_stats is not None:
                     terrain_stats_df = pd.concat(
-                                        [terrain_stats_df, pd.DataFrame([terrain_stats])],
-                                        ignore_index=True,
-                                    )
+                        [terrain_stats_df, pd.DataFrame([terrain_stats])],
+                        ignore_index=True,
+                    )
                     print(f"{len(terrain_stats_df)}/{len(community)}の処理が完了。")
                     print(terrain_stats)
         terrain_stats_df.to_excel(RESULT_XLSX_PATH, index=False)
         create_slope_map(community, housing_area, terrain_stats_df)
         create_shc_map(community, housing_area, terrain_stats_df)
-        merged_community = create_com_shp(community, housing_area, terrain_stats_df, RESULT_SHP_PATH)
+        merged_community = create_com_shp(
+            community, housing_area, terrain_stats_df, RESULT_SHP_PATH
+        )
 
     finally:
         caffeinate_process.terminate()

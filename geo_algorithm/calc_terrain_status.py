@@ -1,9 +1,63 @@
+import contextily as ctx
+import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.ndimage import convolve
-import rasterio
-from rasterio.transform import from_origin, from_bounds, Affine
 import pyproj
+import rasterio
+from matplotlib_scalebar.scalebar import ScaleBar
+from rasterio.transform import Affine, from_bounds, from_origin
+from scipy.ndimage import convolve
+from shapely.geometry import box
+
+prefecture_crs_dict = {
+    "北海道": "EPSG:6681",  # 13系
+    "青森県": "EPSG:6680",  # 12系
+    "岩手県": "EPSG:6680",  # 12系
+    "宮城県": "EPSG:6679",  # 11系
+    "秋田県": "EPSG:6680",  # 12系
+    "山形県": "EPSG:6679",  # 11系
+    "福島県": "EPSG:6679",  # 11系
+    "茨城県": "EPSG:6677",  # 9系
+    "栃木県": "EPSG:6677",  # 9系
+    "群馬県": "EPSG:6677",  # 9系
+    "埼玉県": "EPSG:6677",  # 9系
+    "千葉県": "EPSG:6677",  # 9系
+    "東京都": "EPSG:6677",  # 9系
+    "神奈川県": "EPSG:6677",  # 9系
+    "新潟県": "EPSG:6678",  # 10系
+    "富山県": "EPSG:6678",  # 10系
+    "石川県": "EPSG:6678",  # 10系
+    "福井県": "EPSG:6678",  # 10系
+    "山梨県": "EPSG:6677",  # 9系
+    "長野県": "EPSG:6677",  # 9系
+    "岐阜県": "EPSG:6676",  # 8系
+    "静岡県": "EPSG:6676",  # 8系
+    "愛知県": "EPSG:6676",  # 8系
+    "三重県": "EPSG:6676",  # 8系
+    "滋賀県": "EPSG:6675",  # 7系
+    "京都府": "EPSG:6675",  # 7系
+    "大阪府": "EPSG:6675",  # 7系
+    "兵庫県": "EPSG:6671",  # 3系
+    "奈良県": "EPSG:6675",  # 7系
+    "和歌山県": "EPSG:6675",  # 7系
+    "鳥取県": "EPSG:6673",  # 5系
+    "島根県": "EPSG:6673",  # 5系
+    "岡山県": "EPSG:6674",  # 6系
+    "広島県": "EPSG:6670",  # 2系
+    "山口県": "EPSG:6669",  # 1系
+    "徳島県": "EPSG:6674",  # 6系
+    "香川県": "EPSG:6674",  # 6系
+    "愛媛県": "EPSG:6670",  # 2系
+    "高知県": "EPSG:6670",  # 2系
+    "福岡県": "EPSG:6669",  # 1系
+    "佐賀県": "EPSG:6669",  # 1系
+    "長崎県": "EPSG:6669",  # 1系
+    "熊本県": "EPSG:6669",  # 1系
+    "大分県": "EPSG:6669",  # 1系
+    "宮崎県": "EPSG:6669",  # 1系
+    "鹿児島県": "EPSG:6669",  # 1系
+    "沖縄県": "EPSG:6672",  # 4系
+}
 
 
 def calc_and_visualize_height(
@@ -44,7 +98,9 @@ def calc_and_visualize_height(
     return housing_area_height
 
 
-def calc_and_visualize_slope(city_name, bbox_elevation, housing_mask, transform, housing_area_gdf, visualize=True):
+def calc_and_visualize_slope(
+    city_name, bbox_elevation, housing_mask, transform, housing_area_gdf, visualize=True
+):
     """
     傾斜度の計算と可視化を行い、住居系用途地域の傾斜度データを返す。
 
@@ -59,128 +115,96 @@ def calc_and_visualize_slope(city_name, bbox_elevation, housing_mask, transform,
     """
     # 傾斜度の計算
     slope = calc_slope(bbox_elevation)
-
-    # 住居系用途地域内のデータのみを抽出
     housing_area_slope = np.where(housing_mask == 1, slope, np.nan)
     housing_area_slope_removed = remove_local_outliers(housing_area_slope, "傾斜度")
 
-    # 傾斜度の可視化
-    fig, (ax1, ax2) = plt.subplots(
-        1, 2, figsize=(11, 6), gridspec_kw={"width_ratios": [3.5, 1]}
-    )
-    plt.subplots_adjust(left=0, right=0.85)
+    # 都市名から適切な座標系を取得
+    pref = city_name.split("_")[1].split("(")[1].split(")")[0]
+    epsg = prefecture_crs_dict[pref]
+    housing_area_gdf = housing_area_gdf.to_crs(epsg)
 
-    # 傾斜度の空間分布
+    fig, ax = plt.subplots(figsize=(12, 8))
+
     if visualize:
         visualize_pixel_histogram(housing_area_slope, city_name, "slope", hazure=False)
-        im = ax1.imshow(slope, cmap="autumn_r", aspect="equal", vmin=0, vmax=45)
+        # 描画範囲を設定
+        bounds = housing_area_gdf.total_bounds
+        ax.set_xlim(bounds[0], bounds[2])
+        ax.set_ylim(bounds[1], bounds[3])
 
-        # マスク部分を灰色で表示（住居系用途地域外を灰色に）
-        ax1.imshow(
-            np.where(housing_mask == 0, 0.7, np.nan),
-            cmap="gray_r",
-            alpha=0.8,
-            aspect="equal",
+        # OpenStreetMapの追加
+        try:
+            ctx.add_basemap(
+                ax,
+                crs=housing_area_gdf.crs.to_string(),
+                source=ctx.providers.OpenStreetMap.Mapnik,
+                attribution=False,
+                attribution_size=8,
+            )
+        except Exception as e:
+            print(f"OpenStreetMapの描画でエラーが発生: {e}")
+
+        # 住居系用途地域外を灰色で表示
+        outside_area = np.where(housing_mask == 0, 1, np.nan)
+        ax.imshow(
+            outside_area,
+            extent=[bounds[0], bounds[2], bounds[1], bounds[3]],
+            cmap="gray",
+            alpha=0.5,
         )
 
-        cbar = plt.colorbar(im, ax=ax1)
+        # 傾斜度データの描画
+        masked_slope = np.where(housing_mask == 1, slope, np.nan)
+        im = ax.imshow(
+            masked_slope,
+            extent=[bounds[0], bounds[2], bounds[1], bounds[3]],
+            cmap="YlOrRd",
+            vmin=0,
+            vmax=30,
+            alpha=0.7,
+        )
+
+        # スケールバーを追加（5kmに固定）
+        scale_bar = ScaleBar(
+            dx=1,
+            units="m",
+            fixed_value=5000,
+            location="lower right",
+            pad=0.5,
+            border_pad=0.5,
+            sep=5,
+            length_fraction=0.25,
+            height_fraction=0.015,
+            box_alpha=0.4,
+            box_color="white",
+            color="black",
+            scale_formatter=lambda value, unit: "5 km",
+        )
+        ax.add_artist(scale_bar)
+
+        # 軸の目盛りを削除
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+        # カラーバーの追加
+        cbar = plt.colorbar(im, ax=ax)
         cbar.set_label("傾斜度 (度)")
-        ax1.set_title(f"{city_name}の傾斜度分布")
-        ax1.axis("off")
-    
-    # GeoTIFFとして保存
-    name = city_name.split("_")[1].split("(")[0]
-    output_path = f'result/slope/slope_{name}.tif'
-    crs_dict = {
-        "横須賀市": "EPSG:6677",  # 平面直角座標系9系
-        "長崎市": "EPSG:6669",    # 平面直角座標系1系
-        "佐世保市": "EPSG:6669",  # 平面直角座標系1系
-    }
-    bounds = housing_area_gdf.total_bounds  # [minx, miny, maxx, maxy]
-    
-    if housing_area_gdf.crs.to_string() == "EPSG:4326":
-        transformer = pyproj.Transformer.from_crs(
-            "EPSG:4326",         # 入力：緯度経度（WGS84）
-            crs_dict[name],      # 出力：各都市の平面直角座標系
-            always_xy=True       # x,y順（経度,緯度）で扱う
-        )
-        left, bottom = transformer.transform(bounds[0], bounds[1])
-        right, top = transformer.transform(bounds[2], bounds[3])
-    else:
-        left, bottom, right, top = bounds
-    
-    pixel_size_x = (right - left) / slope.shape[1]
-    pixel_size_y = (top - bottom) / slope.shape[0]
-    transform = Affine(pixel_size_x, 0, left, 0, -pixel_size_y, top)
-    
-    with rasterio.open(
-        output_path,
-        'w',
-        driver='GTiff',
-        height=slope.shape[0],
-        width=slope.shape[1],
-        count=1,
-        dtype=slope.dtype,
-        crs=crs_dict[name],
-        transform=transform
-    ) as dst:
-        dst.write(slope, 1)
 
-    # 傾斜度の区分ごとの割合を計算
-    bins = [0, 5, 10, 15, 20, 25, np.inf]
-    labels = ["0-5度", "5-10度", "10-15度", "15-20度", "20-25度", "25度以上"]
-    hist, _ = np.histogram(housing_area_slope[~np.isnan(housing_area_slope)], bins=bins)
-    percentages = hist / len(housing_area_slope[~np.isnan(housing_area_slope)]) * 100
-    steep_ratio = sum(percentages[1:])  # 5度以上の割合の合計
+        # タイトルを図の下に配置
+        name = city_name.split("_")[1].split("(")[0]
+        ax.set_title(f"{name}の傾斜度分布", pad=20, y=-0.1)
 
-    # 積み上げ棒グラフの作成
-    if visualize:
-        colors = ["#f0f9e8", "#bae4bc", "#7bccc4", "#43a2ca", "#0868ac", "red"]
-        bottom = 0
-        for i, (percentage, color) in enumerate(zip(percentages, colors)):
-            ax2.bar(0, percentage, bottom=bottom, color=color, label=labels[i])
-            if percentage >= 3:
-                ax2.text(
-                    0,
-                    bottom + percentage / 2,
-                    f"{percentage:.1f}%",
-                    ha="center",
-                    va="center",
-                )
-            bottom += percentage
-
-        ax2.set_ylabel("割合 (%)")
-        ax2.set_title("傾斜度の区分別割合\n(住居系用途地域内)")
-        ax2.set_xticks([])
-        ax2.grid(True, axis="y", alpha=0.3)
-        ax2.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
-
-    # 統計情報の表示
-    if visualize:
-        stats_text = (
-            "傾斜度の統計情報\n(住居系用途地域内)\n"
-            f"最小値: {np.nanmin(housing_area_slope):.1f}[度]\n"
-            f"最大値: {np.nanmax(housing_area_slope):.1f}[度]\n"
-            f"平均値: {np.nanmean(housing_area_slope):.1f}[度]\n"
-            f"中央値: {np.nanmedian(housing_area_slope):.1f}[度]"
-        )
-        ax2.text(
-            1.05,
-            0.6,
-            stats_text,
-            transform=ax2.transAxes,
-            ha="left",
-            va="top",
-            bbox=dict(facecolor="none", edgecolor="lightgray", pad=4),
-        )
-
-        plt.savefig(f"result/slope/slope_{city_name}.png", dpi=300)
+        plt.tight_layout()
+        plt.savefig(f"result/slope/slope_{city_name}.png", dpi=300, bbox_inches="tight")
         plt.close()
+    steep_ratio = []
 
     return housing_area_slope, housing_area_slope_removed, steep_ratio
 
 
-def calc_and_visualize_shc(city_name, bbox_elevation, housing_mask, visualize=True):
+def calc_and_visualize_shc(
+    city_name, bbox_elevation, housing_mask, transform, housing_area_gdf, visualize=True
+):
     """
     SHCの計算と可視化を行い、住居系用途地域のSHCデータを返す。
 
@@ -188,9 +212,11 @@ def calc_and_visualize_shc(city_name, bbox_elevation, housing_mask, visualize=Tr
         city_name (str): 自治体名(例: 11_戸田市(埼玉県))
         bbox_elevation (numpy.ndarray): 住居系用途地域を囲むBBoxの標高データ
         housing_mask (numpy.ndarray): 住居系用途地域のマスク
+        transform: 座標変換用パラメータ
+        housing_area_gdf: 住居系用途地域のGeoDataFrame
 
     Returns:
-        housing_area_shc (numpy.ndarray): 住居系用途地域のSHCデータ
+        tuple: (housing_area_shc, housing_area_shc_removed)
     """
     window_size = 10  # 移動窓サイズ
 
@@ -209,28 +235,82 @@ def calc_and_visualize_shc(city_name, bbox_elevation, housing_mask, visualize=Tr
 
     if visualize:
         visualize_pixel_histogram(housing_area_shc, city_name, "shc", hazure=False)
-        fig, ax = plt.subplots(figsize=(10, 8))
-        # vmaxを95パーセンタイルに設定
-        # vmax = np.nanpercentile(housing_area_shc, 95)
-        vmax = 0.15
 
-        # SHCの空間分布
-        im = ax.imshow(bbox_shc, cmap="viridis", aspect="equal", vmin=0, vmax=vmax)
+        pref = city_name.split("_")[1].split("(")[1].split(")")[0]
+        epsg = prefecture_crs_dict[pref]
+        housing_area_gdf = housing_area_gdf.to_crs(epsg)
+
+        fig, ax = plt.subplots(figsize=(12, 8))
+
+        # 描画範囲を設定
+        bounds = housing_area_gdf.total_bounds
+        ax.set_xlim(bounds[0], bounds[2])
+        ax.set_ylim(bounds[1], bounds[3])
+
+        # OpenStreetMapの追加
+        try:
+            ctx.add_basemap(
+                ax,
+                crs=housing_area_gdf.crs.to_string(),
+                source=ctx.providers.OpenStreetMap.Mapnik,
+                attribution=False,
+                attribution_size=8,
+            )
+        except Exception as e:
+            print(f"OpenStreetMapの描画でエラーが発生: {e}")
+
+        # 住居系用途地域外を灰色で表示
+        outside_area = np.where(housing_mask == 0, 1, np.nan)
         ax.imshow(
-            np.where(housing_mask == 0, 0.7, np.nan),
-            cmap="gray_r",
-            alpha=0.8,
-            aspect="equal",
+            outside_area,
+            extent=[bounds[0], bounds[2], bounds[1], bounds[3]],
+            cmap="gray",
+            alpha=0.5,
         )
 
-        cbar = plt.colorbar(im)
+        # SHCデータの描画
+        masked_shc = np.where(housing_mask == 1, bbox_shc, np.nan)
+        im = ax.imshow(
+            masked_shc,
+            extent=[bounds[0], bounds[2], bounds[1], bounds[3]],
+            cmap="viridis",
+            vmin=0,
+            vmax=0.15,
+            alpha=0.85,
+        )
+
+        # スケールバーを追加（5kmに固定）
+        scale_bar = ScaleBar(
+            dx=1,
+            units="m",
+            fixed_value=5000,
+            location="lower right",
+            pad=0.5,
+            border_pad=0.5,
+            sep=5,
+            length_fraction=0.25,
+            height_fraction=0.015,
+            box_alpha=0.4,
+            box_color="white",
+            color="black",
+            scale_formatter=lambda value, unit: "5 km",
+        )
+        ax.add_artist(scale_bar)
+
+        # 軸の目盛りを削除
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+        # カラーバーの追加
+        cbar = plt.colorbar(im, ax=ax)
         cbar.set_label("SHC")
 
-        ax.set_title(f"{city_name}の平面曲率標準偏差(SHC)\n(移動窓: 半径{window_size*10}mの円)")
-        ax.axis("off")
+        # タイトルを図の下に配置
+        name = city_name.split("_")[1].split("(")[0]
+        ax.set_title(f"{name}のSHC分布", pad=20, y=-0.1)
 
         plt.tight_layout()
-        plt.savefig(f"result/shc/shc_{city_name}.png", dpi=300)
+        plt.savefig(f"result/shc/shc_{city_name}.png", dpi=300, bbox_inches="tight")
         plt.close()
 
     return housing_area_shc, housing_area_shc_removed
@@ -518,7 +598,6 @@ def visualize_pixel_histogram(data, city_name, data_type, hazure=False):
     plt.xlabel(xlabel)
     plt.ylabel("度数")
     hazure_str = "（外れ値除去後）" if hazure else ""
-    plt.title(f"{city_name}の{title_type}分布{hazure_str}")
     plt.grid(True, alpha=0.3)
 
     # x軸の範囲を設定
@@ -529,6 +608,17 @@ def visualize_pixel_histogram(data, city_name, data_type, hazure=False):
 
     plt.ylim(bottom=0)
     plt.legend()
+
+    # タイトルを図の下に配置
+    name = city_name.split("_")[1].split("(")[0]
+    plt.text(
+        0.5,
+        -0.15,
+        f"{name}の{title_type}分布{hazure_str}",
+        horizontalalignment="center",
+        transform=plt.gca().transAxes,
+        fontsize=10,
+    )
 
     data_dir = "slope" if data_type == "slope" else "shc"
     hazure_suffix = "_hazure" if hazure else ""

@@ -1,4 +1,5 @@
 import os
+import subprocess
 
 import geopandas as gpd
 import numpy as np
@@ -10,8 +11,6 @@ from calc_terrain_status import (
     calc_and_visualize_slope,
     calc_shc_in_steep_area,
 )
-from rasterio.mask import mask
-from shapely.geometry import box
 from create_terrain_graph import (
     visualize_slope_area_ratio_histogram,
     visualize_slope_ratio_vs_median_slope,
@@ -21,6 +20,8 @@ from create_terrain_graph import (
     visualize_top_cities_on_map,
     visualize_top_steep_cities_comparison,
 )
+from rasterio.mask import mask
+from shapely.geometry import box
 
 DEM_DIR = "/Users/sakamo/Desktop/GISDATA/DEM_地方別/"
 # DEM_地方別/以下に地方名.tifファイルが格納されている
@@ -54,12 +55,12 @@ kyogikai_cities = [
     "小樽市",
     "神戸市",
     "長崎市",
-    "熱海市",
     "函館市",
     "別府市",
     "北九州市",
 ]
 three_cities_list = ["長崎市", "佐世保市", "横須賀市"]
+
 
 def calc_terrain_of_a_city(city_name, housing_area_path, src, transform):
     # 住居系用途地域のSHPファイルを読み込む
@@ -88,12 +89,23 @@ def calc_terrain_of_a_city(city_name, housing_area_path, src, transform):
             housing_area_slope_removed,
             steep_ratio,
         ) = calc_and_visualize_slope(
-            city_name, bbox_elevation, housing_mask, transform, housing_area_gdf, visualize=True
+            city_name,
+            bbox_elevation,
+            housing_mask,
+            transform,
+            housing_area_gdf,
+            visualize=True,
         )
         housing_area_shc, housing_area_shc_removed = calc_and_visualize_shc(
-            city_name, bbox_elevation, housing_mask, visualize=True
+            city_name,
+            bbox_elevation,
+            housing_mask,
+            transform,
+            housing_area_gdf,
+            visualize=True,
         )
-        steep_area_shc = calc_shc_in_steep_area(bbox_elevation, housing_mask)
+        city_terrain_stats = {}
+        """steep_area_shc = calc_shc_in_steep_area(bbox_elevation, housing_mask)
 
         steep_mask = (housing_area_slope >= 5) & (~np.isnan(housing_area_slope))
         steep_area_slope = np.where(steep_mask, housing_area_slope, np.nan)
@@ -124,7 +136,7 @@ def calc_terrain_of_a_city(city_name, housing_area_path, src, transform):
             "斜面市街地のSHC_平均値": np.nanmean(steep_area_shc),
             "斜面市街地のSHC_中央値": np.nanmedian(steep_area_shc),
             "斜面市街地のSHC_標準偏差": np.nanstd(steep_area_shc),
-        }
+        }"""
         return city_terrain_stats
     except ValueError as e:
         print(f"Warning: {city_name}の処理でエラーが発生: {e}")
@@ -152,11 +164,6 @@ def calc_terrain_of_283cities(pref_code_dict):
                 print(f"DEM Path: {area_dem_path}")
                 print("DEM読み込み中...")
                 with rasterio.open(area_dem_path) as src:
-                    print("入力DEM情報:")
-                    print(f"CRS: {src.crs}")
-                    print(f"Transform: {src.transform}")
-                    print(f"Bounds: {src.bounds}")
-                    print(f"Shape: {src.shape}")
                     elevation = src.read(1)  # 最初のバンドを取得
                     elevation = np.where(elevation == -9999, np.nan, elevation)
                     transform = src.transform
@@ -183,16 +190,14 @@ def calc_terrain_of_283cities(pref_code_dict):
                                     f"\n-----{city_name}-----\nshapefile Path: {housing_area_path}"
                                 )
                                 print(f"{city_name}の傾斜度計算中...")
-                                name = city_name.split("_")[1].split("(")[0]
-                                if name in three_cities_list:
-                                    city_terrain_stats = calc_terrain_of_a_city(
-                                        city_name, housing_area_path, src, transform
-                                    )
-                                    df_stats = pd.concat(
-                                        [df_stats, pd.DataFrame([city_terrain_stats])],
-                                        ignore_index=True,
-                                    )
-                                    counter += 1
+                                city_terrain_stats = calc_terrain_of_a_city(
+                                    city_name, housing_area_path, src, transform
+                                )
+                                df_stats = pd.concat(
+                                    [df_stats, pd.DataFrame([city_terrain_stats])],
+                                    ignore_index=True,
+                                )
+                                counter += 1
                     print(df_stats)
     print(f"{counter}件のデータを作成しました。")
 
@@ -200,55 +205,63 @@ def calc_terrain_of_283cities(pref_code_dict):
 
 
 if __name__ == "__main__":
-    # 都道府県コードと県名の辞書を作成
-    target_list = pd.read_excel(TARGET_LIST_EXCEL)
-    # 都道府県名と都道府県コードの辞書を作成
-    pref_code_dict = {}
-    for _, row in target_list.iterrows():
-        pref_name = row["都道府県名"].split("_")[1]  # "(都道府県コード)_都道府県名" から都道府県名を抽出
-        pref_code = row["都道府県名"].split("_")[0]  # "(都道府県コード)_都道府県名" から都道府県コードを抽出
-        pref_code_dict[pref_name] = pref_code
+    # caffeinate コマンドを開始
+    caffeinate_process = subprocess.Popen(["caffeinate", "-d"])
 
-    if_calc_terrain = True
-    if_visualize_terrain = False
+    try:
+        # 都道府県コードと県名の辞書を作成
+        target_list = pd.read_excel(TARGET_LIST_EXCEL)
+        # 都道府県名と都道府県コードの辞書を作成
+        pref_code_dict = {}
+        for _, row in target_list.iterrows():
+            pref_name = row["都道府県名"].split("_")[1]  # "(都道府県コード)_都道府県名" から都道府県名を抽出
+            pref_code = row["都道府県名"].split("_")[0]  # "(都道府県コード)_都道府県名" から都道府県コードを抽出
+            pref_code_dict[pref_name] = pref_code
 
-    if if_calc_terrain:
-        # 283都市の標高・傾斜度・SHCを計算し、エクセルデータを作成
-        df_stats = calc_terrain_of_283cities(pref_code_dict)
-        df_stats.to_excel(RESULT_XLSX, index=False)
+        if_calc_terrain = True
+        if_visualize_terrain = False
 
-    if if_visualize_terrain:
-        # 作成したエクセルデータを読み込み
-        df_stats = pd.read_excel(RESULT_XLSX, dtype={"都道府県コード": str})
-        top_steep_cities = df_stats.sort_values(
-            "住居系用途地域に占める斜面市街地の割合", ascending=False
-        ).head(27)
-        top_steep_cities = list(top_steep_cities["市区町村名"])
+        if if_calc_terrain:
+            # 283都市の標高・傾斜度・SHCを計算し、エクセルデータを作成
+            df_stats = calc_terrain_of_283cities(pref_code_dict)
+            df_stats.to_excel(RESULT_XLSX, index=False)
 
-        hazure = False
-        only_steep_area = True
-        visualize_slope_area_ratio_histogram(df_stats)
-        visualize_slope_ratio_vs_median_slope(df_stats)
-        visualize_top_cities_on_map(df_stats, hazure, if_kanto=True, thr_rank=27)
-        visualize_top_steep_cities_comparison(df_stats, top_steep_cities)
-        visualize_slope_shc_relationship(
-            df_stats,
-            kyogikai_cities,
-            top_steep_cities,
-            only_steep_area,
-            "red",
-            hazure,
-            thr_rank=27,
-        )
-        visualize_slope_shc_relationship(
-            df_stats,
-            kyogikai_cities,
-            top_steep_cities,
-            only_steep_area,
-            "orange",
-            hazure,
-            thr_rank=27,
-        )
-        visualize_slope_shc_relationship_with_top_cities1(
-            df_stats, top_steep_cities, only_steep_area, hazure
-        )
+        if if_visualize_terrain:
+            # 作成したエクセルデータを読み込み
+            df_stats = pd.read_excel(RESULT_XLSX, dtype={"都道府県コード": str})
+            top_steep_cities = df_stats.sort_values(
+                "住居系用途地域に占める斜面市街地の割合", ascending=False
+            ).head(27)
+            top_steep_cities = list(top_steep_cities["市区町村名"])
+
+            hazure = False
+            only_steep_area = True
+            visualize_slope_area_ratio_histogram(df_stats)
+            visualize_slope_ratio_vs_median_slope(df_stats)
+            visualize_top_cities_on_map(df_stats, hazure, if_kanto=True, thr_rank=27)
+            visualize_top_steep_cities_comparison(df_stats, top_steep_cities)
+            visualize_slope_shc_relationship(
+                df_stats,
+                kyogikai_cities,
+                top_steep_cities,
+                only_steep_area,
+                "red",
+                hazure,
+                thr_rank=27,
+            )
+            visualize_slope_shc_relationship(
+                df_stats,
+                kyogikai_cities,
+                top_steep_cities,
+                only_steep_area,
+                "orange",
+                hazure,
+                thr_rank=27,
+            )
+            visualize_slope_shc_relationship_with_top_cities1(
+                df_stats, top_steep_cities, only_steep_area, hazure
+            )
+
+    finally:
+        # 処理終了時に caffeinate を終了
+        caffeinate_process.terminate()

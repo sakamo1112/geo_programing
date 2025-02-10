@@ -5,6 +5,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
+import matplotlib.pyplot as plt
 from calc_terrain_status import (
     calc_and_visualize_height,
     calc_and_visualize_shc,
@@ -60,6 +61,113 @@ kyogikai_cities = [
     "北九州市",
 ]
 three_cities_list = ["長崎市", "佐世保市", "横須賀市"]
+
+def visualize_slope_shc_relationship_custom(
+    df_stats,
+    only_steep_area,
+    hazure,
+):
+    """
+    横須賀市と別府市を赤の大きい丸で描画し、他の自治体をグレーの丸で描画する関数
+
+    Args:
+        df_stats (pandas.DataFrame): 統計値をまとめたデータフレーム
+        only_steep_area (bool): 斜面市街地のみを表示するかどうか
+        hazure (bool): 外れ値除去を行うかどうか
+    """
+    plt.figure(figsize=(10, 8))
+
+    if only_steep_area:
+        df_stats = df_stats[df_stats["住居系用途地域に占める斜面市街地の割合"] >= 5]
+        makura = "斜面市街地の"
+    else:
+        makura = ""
+
+    if hazure:
+        hazure = "(外れ値除去後)"
+    else:
+        hazure = ""
+
+
+    for i, row in df_stats.iterrows():
+        city = row["市区町村名"]
+        x, y = (
+            row[f"{makura}SHC{hazure}_平均値"],
+            row[f"{makura}傾斜度{hazure}_中央値"],
+        )
+
+        if city in "横須賀市":
+            plt.scatter(
+                x,
+                y,
+                color="red",
+                marker="o",
+                s=100,
+                zorder=10,
+                label=city if city not in plt.gca().get_legend_handles_labels()[1] else "",
+            )
+            plt.annotate(
+                city,
+                (x, y),
+                xytext=(5, 5),
+                textcoords="offset points",
+                color="black",
+                fontweight="bold",
+                zorder=10,
+                fontsize=8,
+            )
+        elif city in "別府市":
+            plt.scatter(
+                x,
+                y,
+                color="blue",
+                marker="o",
+                s=100,
+                zorder=10,
+                label=city if city not in plt.gca().get_legend_handles_labels()[1] else "",
+            )
+            plt.annotate(
+                city,
+                (x, y),
+                xytext=(5, 5),
+                textcoords="offset points",
+                color="black",
+                fontweight="bold",
+                zorder=10,
+                fontsize=8,
+            )
+        else:
+            plt.scatter(
+                x,
+                y,
+                color="gray",
+                alpha=0.5,
+                s=30,
+                zorder=1,
+                label="その他の都市" if "その他の都市" not in plt.gca().get_legend_handles_labels()[1] else "",
+            )
+
+    plt.xlabel(f"起伏の大きさ(SHC{hazure}の平均値)")
+    plt.ylabel(f"急峻さ(傾斜度{hazure}の中央値) [度]")
+    if only_steep_area:
+        plt.title(f"各自治体の斜面市街地における傾斜度とSHCの関係")
+    else:
+        plt.title(f"各自治体における傾斜度とSHCの関係")
+    plt.grid(True, alpha=0.3)
+
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    plt.legend(by_label.values(), by_label.keys(), loc="lower left")
+
+    hazure_suffix = "_hazure" if hazure else ""
+    steep_suffix = "_os" if only_steep_area else ""
+    plt.savefig(
+        f"result/slope_shc_scatter_custom{hazure_suffix}{steep_suffix}.png",
+        dpi=300,
+        bbox_inches="tight",
+    )
+    plt.close()
+
 
 
 def calc_terrain_of_a_city(city_name, housing_area_path, src, transform):
@@ -218,8 +326,8 @@ if __name__ == "__main__":
             pref_code = row["都道府県名"].split("_")[0]  # "(都道府県コード)_都道府県名" から都道府県コードを抽出
             pref_code_dict[pref_name] = pref_code
 
-        if_calc_terrain = True
-        if_visualize_terrain = False
+        if_calc_terrain = False
+        if_visualize_terrain = True
 
         if if_calc_terrain:
             # 283都市の標高・傾斜度・SHCを計算し、エクセルデータを作成
@@ -235,7 +343,8 @@ if __name__ == "__main__":
             top_steep_cities = list(top_steep_cities["市区町村名"])
 
             hazure = False
-            only_steep_area = True
+            only_steep_area = False
+            visualize_slope_shc_relationship_custom(df_stats, only_steep_area, hazure)
             visualize_slope_area_ratio_histogram(df_stats)
             visualize_slope_ratio_vs_median_slope(df_stats)
             visualize_top_cities_on_map(df_stats, hazure, if_kanto=True, thr_rank=27)
